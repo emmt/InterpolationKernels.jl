@@ -1,20 +1,18 @@
 #
-# kernels.jl --
+# InterpolationKernels.jl --
 #
 # Kernel functions used for linear filtering, windowing or linear
 # interpolation.
 #
 #------------------------------------------------------------------------------
 #
-# This file is part of the LinearInterpolators package licensed under the MIT
+# This file is part of the InterpolationKernels package licensed under the MIT
 # "Expat" License.
 #
 # Copyright (C) 2016-2019, Éric Thiébaut.
 #
 
-module Kernels
-
-import Base: convert
+module InterpolationKernels
 
 export
     Boundaries,
@@ -44,6 +42,8 @@ export
     iscardinal,
     isnormalized,
     brief
+
+import Base: convert
 
 # Deal with compatibility issues.
 using Compat
@@ -84,10 +84,11 @@ struct SafeFlat <: Boundaries; end
 """
 # Interpolation Kernels
 
-An interpolation kernel `Interpolations.Kernel{T,S,B}` is parametrized by the
-floating-point type `T` of its coefficients, by the size `S` of its support and
-by the boundary conditions `B` to apply for extrapolation.  For efficiency
-reasons, only kernels with (small) finite size supports are implemented.
+An interpolation kernel `Kernel{T,S,B}` is parametrized by the
+floating-point type `T` of its coefficients, by the size `S` of its support
+and by the boundary conditions `B` to apply for extrapolation.  For
+efficiency reasons, only kernels with (small) finite size supports are
+implemented.
 
 A kernel may be used as a function wit a real argument:
 
@@ -106,8 +107,8 @@ type:
 
 to convert the kernel to operate with given floating-point type `T` and use
 boundary conditions `B` (any of which can be omitted and their order is
-irrelevant). Beware that changing the floating-point type may lead to a loss of
-precision if the new floating-point type has more digits).
+irrelevant).  Beware that changing the floating-point type may lead to a
+loss of precision if the new floating-point type has more digits).
 
 It is possible to change the floating-point type of a kernel or its boundary
 conditions by something like:
