@@ -3,8 +3,12 @@ uuid = "16730964-a2ec-11e9-36fa-47a4f82bfac6"
 authors = ["Éric Thiébaut <eric.thiebaut@univ-lyon1.fr>"]
 version = "0.1.0"
 
+[deps]
+Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
+InteractiveUtils = "b77e0a4c-d291-57a0-90e8-8db25a27a240"
+
 [compat]
-julia ="0.7, 1.0, 1.1"
+julia ="0.7, 1.0, 1.1, 1.2"
 
 [extras]
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"

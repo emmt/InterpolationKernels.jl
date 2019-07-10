@@ -43,18 +43,9 @@ export
     isnormalized,
     brief
 
-import Base: convert
-
-# Deal with compatibility issues.
-using Compat
-using Compat.Printf
-using Compat.InteractiveUtils
-@static if isdefined(Base, :adjoint)
-    import Base: adjoint
-else
-    import Base: ctranspose
-    const adjoint = ctranspose
-end
+import Base: convert, adjoint
+using Printf
+using InteractiveUtils
 
 #------------------------------------------------------------------------------
 # EXTRAPOLATION METHODS
