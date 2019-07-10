@@ -7,6 +7,14 @@
 The InterpolationKernels package provides a library of interpolation kernels
 for Julia.
 
+## Installation
+
+InterpolationKernels can be installed by Julia's package manager:
+
+```julia
+pkg> add https://github.com/emmt/InterpolationKernels.jl
+```
+
 [doc-stable-img]: https://img.shields.io/badge/docs-stable-blue.svg
 [doc-stable-url]: https://emmt.github.io/InterpolationKernels.jl/stable
 
