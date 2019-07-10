@@ -32,10 +32,12 @@ export
     LinearSplinePrime,
     MitchellNetravaliSpline,
     MitchellNetravaliSplinePrime,
+    Periodic,
     QuadraticSpline,
     QuadraticSplinePrime,
     RectangularSpline,
     RectangularSplinePrime,
+    Reflect,
     SafeFlat,
     boundaries,
     getweights,
@@ -58,8 +60,8 @@ abstract type Boundaries end
 
 struct Flat     <: Boundaries; end
 struct SafeFlat <: Boundaries; end
-#struct Periodic <: Boundaries; end
-#struct Reflect  <: Boundaries; end
+struct Periodic <: Boundaries; end
+struct Reflect  <: Boundaries; end
 
 #------------------------------------------------------------------------------
 # INTERPOLATION KERNELS
