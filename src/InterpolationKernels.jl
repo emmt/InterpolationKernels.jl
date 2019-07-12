@@ -1377,7 +1377,7 @@ for K in subtypes(Kernel)
                 T, S, B, newT<:AbstractFloat, newB<:Boundaries
             } = convert($K{newT,S,newB}, ker)
 
-            Base.convert(::Type{$K{T,S,B}}, ker::$K{T,S,B}) where {T,S,B} = ker
+            convert(::Type{$K{T,S,B}}, ker::$K{T,S,B}) where {T,S,B} = ker
         end
     else
         @eval begin
@@ -1389,11 +1389,18 @@ for K in subtypes(Kernel)
                 T, B, newT<:AbstractFloat, newB<:Boundaries
             } = convert($K{newT,newB}, ker)
 
-            Base.convert(::Type{$K{T,B}}, ker::$K{T,B}) where {T,B} = ker
+            convert(::Type{$K{T,B}}, ker::$K{T,B}) where {T,B} = ker
         end
     end
 
 end
+
+convert(::Type{Kernel}, ker::Kernel) = ker
+convert(::Type{Kernel{T}}, ker::Kernel{T}) where {T<:AbstractFloat} = ker
+convert(::Type{Kernel{T}}, ker::Kernel) where {T<:AbstractFloat} = ker(T)
+convert(::Type{Kernel{T,S}}, ker::Kernel{T,S}) where {T<:AbstractFloat,S} = ker
+convert(::Type{Kernel{T,S,B}}, ker::Kernel{T,S,B}) where {T<:AbstractFloat,S,B} = ker
+convert(::Type{Kernel{T,S,B}}, ker::Kernel{<:Any,S,<:Any}) where {T<:AbstractFloat,S,B} = ker(T, B)
 
 # Deprecations.
 # Prime = ′    \prime + [tab]
