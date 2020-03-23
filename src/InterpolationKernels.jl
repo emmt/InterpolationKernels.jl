@@ -32,12 +32,12 @@ export
     LinearSplinePrime,
     MitchellNetravaliSpline,
     MitchellNetravaliSplinePrime,
-    Periodic,
+    #Periodic,
     QuadraticSpline,
     QuadraticSplinePrime,
     RectangularSpline,
     RectangularSplinePrime,
-    Reflect,
+    #Reflect,
     SafeFlat,
     boundaries,
     getweights,
@@ -47,7 +47,7 @@ export
 
 import Base: convert, adjoint
 using Printf
-using InteractiveUtils
+using InteractiveUtils # for subtypes
 
 #------------------------------------------------------------------------------
 # EXTRAPOLATION METHODS
@@ -60,8 +60,8 @@ abstract type Boundaries end
 
 struct Flat     <: Boundaries; end
 struct SafeFlat <: Boundaries; end
-struct Periodic <: Boundaries; end
-struct Reflect  <: Boundaries; end
+#struct Periodic <: Boundaries; end
+#struct Reflect  <: Boundaries; end
 
 #------------------------------------------------------------------------------
 # INTERPOLATION KERNELS
