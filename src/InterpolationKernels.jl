@@ -111,6 +111,16 @@ Float32(ker)    # change floating-point type of kernel `ker`
 SafeFlat(ker)   # change boundary conditions of kernel `ker`
 ```
 
+The above calls do not follow the usuall conventions that a constructor may be
+called to convert its argument(s) to an instance of its type, this is however
+practical considering the following more rigorous calls to repectively change
+the the floating-point type and boundary conditions of kernel `ker`:
+
+```julia
+convert(Kernel{Float32}, ker)
+convert(Kernel{eltype(ker),length(ker),SafeFlat}, ker)
+```
+
 ## Available methods
 
 The following methods are available for any interpolation kernel `ker`:
