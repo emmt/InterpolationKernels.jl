@@ -77,18 +77,18 @@ struct SafeFlat <: Boundaries; end
 """
 # Interpolation Kernels
 
-An interpolation kernel `Kernel{T,S,B}` is parametrized by the
-floating-point type `T` of its coefficients, by the size `S` of its support
-and by the boundary conditions `B` to apply for extrapolation.  For
-efficiency reasons, only kernels with (small) finite size supports are
-implemented.
+An interpolation kernel `Kernel{T,S,B}` is parametrized by the floating-point
+type `T` of its coefficients, by the size `S` of its support and by the
+boundary conditions `B` to apply for extrapolation.  For efficiency reasons,
+only kernels with (small) finite size supports are implemented.
 
-A kernel may be used as a function wit a real argument:
+A kernel `ker` is a callable object which may be used as a function with a real
+argument:
 
     ker(x::Real)
 
 yields kernel value at offset `x`.  All kernel supports are symmetric; that is
-`ker(x)` is zero if `abs(x) > S/2`.
+`ker(x)` is zero if `abs(x) > S/2` with `S` the size of the kernel support.
 
 
 ## Kernel conversion
@@ -166,8 +166,10 @@ Base.eltype(::Kernel{T,S,B})         where {T,S,B} = T
 Base.eltype(::Type{<:Kernel{T,S,B}}) where {T,S,B} = T
 Base.length(::Kernel{T,S,B})         where {T,S,B} = S
 Base.length(::Type{<:Kernel{T,S,B}}) where {T,S,B} = S
-Base.size(::Kernel{T,S,B})           where {T,S,B} = (S,)
-Base.size(::Type{<:Kernel{T,S,B}})   where {T,S,B} = (S,)
+
+import Base: size
+@deprecate size(ker::Kernel)         (length(ker),)
+@deprecate size(ker::Type{<:Kernel}) (length(ker),)
 
 """
 `boundaries(ker)` yields the type of the boundary conditions applied for

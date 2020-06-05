@@ -76,8 +76,8 @@ shortname(str::AbstractString) =
             @test iscardinal(ker) == card
             @test length(ker) == sup
             @test length(typeof(ker)) == sup
-            @test size(ker) == (sup,)
-            @test size(typeof(ker)) == (sup,)
+            @test_deprecated size(ker) == (sup,)
+            @test_deprecated size(typeof(ker)) == (sup,)
             for T in types
                 @test eltype(T(ker)) == T
                 @test eltype(typeof(T(ker))) == T
