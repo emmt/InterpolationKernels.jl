@@ -30,14 +30,13 @@ yields kernel value at offset `x`.  All kernel supports are symmetric; that is
 
 Some simple methods are available for any interpolation kernel `ker`:
 
-- `eltype(ker) -> T` yields the floating-point type `T` for calculations;
+- `eltype(ker)` yields the floating-point type `T` for calculations;
 
-- `length(ker) -> S` yields the number `S` of samples in the support of `ker`
-  which is also the number of neighbors involved in an interpolation by this
-  kernel;
+- `length(ker)` yields the number `S` of samples in the support of `ker` which
+  is also the number of neighbors involved in an interpolation by this kernel;
 
-- `[boundaries](@ref)(ker) -> B` yields the type of the boundary conditions applied for
-  extrapolation.
+- [`boundaries(ker)`](@ref) yields `B` the type of the boundary conditions
+  applied for extrapolation.
 
 Since the floating-point type `T`, the support size `S` and the boundary
 conditions `B` are parameters of the interpolation kernel type, the above
