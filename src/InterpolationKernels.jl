@@ -53,13 +53,32 @@ using InteractiveUtils # for subtypes
 # EXTRAPOLATION METHODS
 
 """
+
 All extrapolation methods (a.k.a. boundary conditions) are singletons and
 inherit from the abstract type `Boundaries`.
+
 """
 abstract type Boundaries end
 
-struct Flat     <: Boundaries; end
+"""
+
+Type `Flat` indicates that *flat* boundary conditions hold.  These conditions
+assume that the value of the nearest sample is used when extrapolating.
+
+"""
+struct Flat <: Boundaries; end
+
+"""
+
+Type `SafeFlat` indicates that *flat* boundary conditions hold.  These
+conditions as similar to the ones assumed by `Flat` conditions but are safer
+because they account for possible integer overflows when converting coordinates
+to indices.  As a consequence, applying `SafeFlat` boundary conditions is
+slower than applying `Safe` boundary conditions.
+
+"""
 struct SafeFlat <: Boundaries; end
+
 #struct Periodic <: Boundaries; end
 #struct Reflect  <: Boundaries; end
 
@@ -156,8 +175,7 @@ t = x - floor(x)        if s is even
     x - round(x)        if s is odd
 ```
 
- `t ∈ [0,1]` if `S` is even or
-for offset `t ∈ [-1/2,+1/2]` if `S` is odd.
+`t ∈ [0,1]` if `S` is even or for offset `t ∈ [-1/2,+1/2]` if `S` is odd.
 
 """
 abstract type Kernel{T<:AbstractFloat,S,B<:Boundaries} <: Function end
@@ -172,61 +190,84 @@ import Base: size
 @deprecate size(ker::Type{<:Kernel}) (length(ker),)
 
 """
-`boundaries(ker)` yields the type of the boundary conditions applied for
-extrapolation with kernel `ker`.
+
+    boundaries(ker)
+
+yields the type of the boundary conditions that hold for extrapolation with
+kernel `ker`.
+
 """
 boundaries(::Kernel{T,S,B})         where {T,S,B} = B
 boundaries(::Type{<:Kernel{T,S,B}}) where {T,S,B} = B
 
 """
-`isnormalized(ker)` returns a boolean indicating whether the kernel `ker` has
-the partition of unity property.  That is, the sum of the values computed by
-the kernel `ker` on a unit spaced grid is equal to one.
+
+    isnormalized(ker)
+
+yields whether the kernel `ker` has the partition of unity property.  That is,
+the sum of the values computed by the kernel `ker` on a unit spaced grid is
+equal to one.
+
 """
 function isnormalized end
 
 """
-`iscardinal(ker)` returns a boolean indicating whether the kernel `ker`
-is zero for non-zero integer arguments.
+
+    iscardinal(ker)
+
+yields whether the kernel `ker` is zero for non-zero integer arguments.
+Cardinal kernels are directly suitbale for interpolation.
+
 """
 function iscardinal end
 
 """
-```julia
-getweights(ker, t) -> w1, w2, ..., wS
-```
+    getweights(ker, x - j) -> w1, w2, ..., wS
 
-yields the interpolation weights for the `S` neighbors of a position `x`.
-Offset `t` between `x` and the nearest neighbor is in the range `[0,1]` for `S`
-even and `[-1/2,+1/2]` for `S` odd.
+yields the `S`-tuple of the weights for interpolating around position `x` (in
+fractional index units) with kernel `ker` (`S` is the size of the kernel
+support).  The index `j` is given by:
+
+    j = floor(x)   #  if `S` is even
+    j = round(x)   #  if `S` is odd
+
+(the rounding direction does not matter for the result of the interpolation).
+The offset `t = x - j` is therefore in the range `[0,1]` for `S` even and in
+the range `[-1/2,+1/2]` for `S` odd.
 
 """
 function getweights end
 
 #------------------------------------------------------------------------------
-"""
-# Rectangular Spline
-
-The rectangular spline (also known as box kernel or Fourier window or Dirichlet
-window) is the 1st order (constant) B-spline equals to `1` on `[-1/2,+1/2)`,
-and `0` elsewhere.
-
-A rectangular spline instance is created by:
-
-```julia
-RectangularSpline([T=Float64,] B=Flat)
-```
-
-Its derivative is created by:
-
-```julia
-RectangularSplinePrime([T=Float64,] B=Flat)
-```
+# RECTANGULAR B-SPLINE
 
 """
+    RectangularSpline([T=Float64,] B=Flat)
+
+yields an instance of the rectangular spline for floating-point type `T` and
+boundary conditions `B`.
+
+The rectangular spline (also known as *box kernel*, as *Fourier window* or as
+*Dirichlet window*) is the 1st order (constant) B-spline equals to `1` on
+`[-1/2,+1/2)`, and `0` elsewhere.
+
+The expression `ker'` yields a kernel instance which is the 1st derivative of
+the rectangular spline `ker` (also see the constructor
+[`RectangularSplinePrime`](@ref)).
+
+""" RectangularSpline
+
+"""
+    RectangularSplinePrime([T=Float64,] B=Flat)
+
+yields a kernel instance that is the 1st derivative of the rectangular spline
+(see [`RectangularSpline`](@ref)) for floating-point type `T` and boundary
+conditions `B`.
+
+""" RectangularSplinePrime
+
 struct RectangularSpline{T,B} <: Kernel{T,1,B}; end
 struct RectangularSplinePrime{T,B} <: Kernel{T,1,B}; end
-@doc @doc(RectangularSpline) RectangularSplinePrime
 
 iscardinal(::Union{K,Type{K}}) where {K<:RectangularSpline} = true
 iscardinal(::Union{K,Type{K}}) where {K<:RectangularSplinePrime} = false
@@ -247,28 +288,37 @@ Base.show(io::IO, ::RectangularSplinePrime) = print(io, "RectangularSplinePrime(
 @inline getweights(::RectangularSplinePrime{T,B}, t::T) where {T,B} = zero(T)
 
 #------------------------------------------------------------------------------
-"""
-# Linear Spline
-
-The linear spline (also known as triangle kernel or Bartlett window or Fejér
-window) is the 2nd order (linear) B-spline.
-
-A linear spline instance is created by:
-
-```julia
-LinearSpline([T=Float64,] B=Flat)
-```
-
-Its derivative is created by:
-
-```julia
-LinearSplinePrime([T=Float64,] B=Flat)
-```
+# LINEAR B-SPLINE
 
 """
+    LinearSpline([T=Float64,] B=Flat)
+
+yields an instance of the linear spline for floating-point type `T` and
+boundary conditions `B`.
+
+The linear spline (also known as *triangle kernel*, as *Bartlett window* or as
+*Fejér window*) is the 2nd order (linear) B-spline given by:
+
+    ker(x) = 1 - |x|       if |x| ≤ 1
+             0             if |x| ≥ 1
+
+The expression `ker'` yields a kernel instance which is the 1st derivative of
+the linear spline `ker` (also see the constructor
+[`LinearSplinePrime`](@ref)).
+
+""" LinearSpline
+
+"""
+    LinearSplinePrime([T=Float64,] B=Flat)
+
+yields a kernel instance that is the 1st derivative of the linear spline
+(see [`LinearSpline`](@ref)) for floating-point type `T` and boundary
+conditions `B`.
+
+""" LinearSplinePrime
+
 struct LinearSpline{T,B} <: Kernel{T,2,B}; end
 struct LinearSplinePrime{T,B} <: Kernel{T,2,B}; end
-@doc @doc(LinearSpline) LinearSplinePrime
 
 iscardinal(::Union{K,Type{K}}) where {K<:LinearSpline} = true
 iscardinal(::Union{K,Type{K}}) where {K<:LinearSplinePrime} = false
@@ -297,27 +347,37 @@ Base.show(io::IO, ::LinearSplinePrime) = print(io, "LinearSplinePrime()")
     (-one(T), one(T))
 
 #------------------------------------------------------------------------------
-"""
-# Quadratic Spline
-
-The quadratic spline is the 3rd order (quadratic) B-spline.
-
-A quadratic spline instance is created by:
-
-```julia
-QuadraticSpline([T=Float64,] B=Flat)
-```
-
-Its derivative is created by:
-
-```julia
-QuadraticSplinePrime([T=Float64,] B=Flat)
-```
+# QUADRATIC B-SPLINE
 
 """
+    QuadraticSpline([T=Float64,] B=Flat)
+
+yields an instance of the quadratic spline for floating-point type `T` and
+boundary conditions `B`.
+
+The quadratic spline is the 3rd order (quadratic) B-spline given by:
+
+    ker(x) = 3/4 - x^2                   if |x| ≤ 1/2
+             (1/2)*(|x| - 3/2)^2         if |x| ≤ 3/2
+             0                           if |x| ≥ 3/2
+
+The expression `ker'` yields a kernel instance which is the 1st derivative of
+the quadratic spline `ker` (also see the constructor
+[`QuadraticSplinePrime`](@ref)).
+
+""" QuadraticSpline
+
+"""
+    QuadraticSplinePrime([T=Float64,] B=Flat)
+
+yields a kernel instance that is the 1st derivative of the quadratic spline
+(see [`QuadraticSpline`](@ref)) for floating-point type `T` and boundary
+conditions `B`.
+
+""" QuadraticSplinePrime
+
 struct QuadraticSpline{T,B} <: Kernel{T,3,B}; end
 struct QuadraticSplinePrime{T,B} <: Kernel{T,3,B}; end
-@doc @doc(QuadraticSpline) QuadraticSplinePrime
 
 iscardinal(::Union{K,Type{K}}) where {K<:QuadraticSpline} = false
 iscardinal(::Union{K,Type{K}}) where {K<:QuadraticSplinePrime} = false
@@ -375,28 +435,37 @@ end
 end
 
 #------------------------------------------------------------------------------
-"""
-# Cubic Spline
+# CUBIC B-SPLINE
 
+"""
     CubicSpline([T=Float64,] B=Flat)
 
-where `T <: AbstractFloat` and `B <: Boundaries` yields a cubic spline kernel
-which operates with floating-point type `T` and use boundary conditions `B`
-(any of which can be omitted and their order is irrelevant).
+yields an instance of the cubic spline for floating-point type `T` and
+boundary conditions `B`.
 
-The 4th order (cubic) B-spline kernel is also known as Parzen window or de la
-Vallée Poussin window.
+The 4th order (cubic) B-spline kernel is also known as *Parzen window* or as *de la
+Vallée Poussin window*.   It is given by:
 
-Its derivative is given by:
+    ker(x) = 2/3 + (|x|/2 - 1)*x^2       if |x| ≤ 1
+             (1/6)*(2 - |x|)^2           if |x| ≤ 2
+             0                           if |x| ≥ 2
 
-```julia
-CubicSplinePrime([T=Float64,] B=Flat)
-```
+The expression `ker'` yields a kernel instance which is the 1st derivative of
+the cubic spline `ker` (also see the constructor
+[`CubicSplinePrime`](@ref)).
+
+""" CubicSpline
 
 """
+    CubicSplinePrime([T=Float64,] B=Flat)
+
+yields a kernel instance that is the 1st derivative of the cubic spline (see
+[`CubicSpline`](@ref)) for floating-point type `T` and boundary conditions `B`.
+
+""" CubicSplinePrime
+
 struct CubicSpline{T,B} <: Kernel{T,4,B}; end
 struct CubicSplinePrime{T,B} <: Kernel{T,4,B}; end
-@doc @doc(CubicSpline) CubicSplinePrime
 
 iscardinal(::Union{K,Type{K}}) where {K<:CubicSpline} = false
 iscardinal(::Union{K,Type{K}}) where {K<:CubicSplinePrime} = false
@@ -463,43 +532,47 @@ end
 end
 
 #------------------------------------------------------------------------------
-# Catmull-Rom kernel is a special case of Mitchell & Netravali kernel.
+# CATMULL-ROM INTERPOLATION KERNEL
 
 """
-```julia
-CatmullRomSpline([T=Float64,] B=Flat) -> ker
-```
+    CatmullRomSpline([T=Float64,] B=Flat)
 
-yields a Catmull-Rom interpolation kernel for floating-point type `T` and
-boundary conditions `B`.
+yields an instance of the Catmull-Rom interpolation kernel for floating-point
+type `T` and boundary conditions `B`.
 
 Catmull-Rom interpolation kernel is a piecewise cardinal cubic spline defined
 by:
 
-```
-ker(x) = ((3/2)*|x| - (5/2))*x^2 + 1             if |x| ≤ 1
-         (((5/2) - (1/2)*|x|)*|x| - 4)*|x| + 2   if 1 ≤ |x| ≤ 2
-         0                                       if |x| ≥ 2
-```
+    ker(x) = ((3/2)*|x| - (5/2))*x^2 + 1             if |x| ≤ 1
+             (((5/2) - (1/2)*|x|)*|x| - 4)*|x| + 2   if 1 ≤ |x| ≤ 2
+             0                                       if |x| ≥ 2
 
-It derivative is given by:
+Catmull-Rom kernel is a special case of Mitchell & Netravali kernel (see
+[`MitchellNetravaliSplinePrime`](@ref)).
 
-```julia
-CatmullRomSplinePrime([T=Float64,] B=Flat) -> ker′
-```
+The expression `ker'` yields a kernel instance which is the 1st derivative of
+the Catmull-Rom interpolation kernel `ker` (also see the constructor
+[`CatmullRomSplinePrime`](@ref)).
 
-with:
-
-```
-ker′(x) = ((9/2)*|x| - 5)*x                      if a = |x| ≤ 1
-          (5 - (3/2)*|x|)*x - 4*sign(x)          if 1 ≤ |x| ≤ 2
-          0                                      if |x| ≥ 2
-```
+""" CatmullRomSpline
 
 """
+    CatmullRomSplinePrime([T=Float64,] B=Flat)
+
+yields a kernel instance that is the 1st derivative of the Catmull-Rom
+interpolation kernel (see [`CatmullRomSpline`](@ref)) for floating-point type
+`T` and boundary conditions `B`.
+
+The 1st derivative of the Catmull-Rom interpolation kernel is given by:
+
+    ker′(x) = ((9/2)*|x| - 5)*x                      if a = |x| ≤ 1
+              (5 - (3/2)*|x|)*x - 4*sign(x)          if 1 ≤ |x| ≤ 2
+              0                                      if |x| ≥ 2
+
+""" CatmullRomSplinePrime
+
 struct CatmullRomSpline{T,B} <: Kernel{T,4,B}; end
 struct CatmullRomSplinePrime{T,B} <: Kernel{T,4,B}; end
-@doc @doc(CatmullRomSpline) CatmullRomSplinePrime
 
 iscardinal(::Union{K,Type{K}}) where {K<:CatmullRomSpline} = true
 iscardinal(::Union{K,Type{K}}) where {K<:CatmullRomSplinePrime} = false
@@ -562,25 +635,35 @@ end
 end
 
 #------------------------------------------------------------------------------
-"""
-```julia
-CardinalCubicSpline([T=Float64,] c, B=Flat) -> ker
-```
-
-yields a cardinal cubic spline interpolation kernel for floating-point type `T`
-tension parameter `c` and boundary conditions `B`.  The slope at `x = ±1` is
-`±(c - 1)/2`.  Usually `c ≤ 1`, choosing `c = 0` yields a Catmull-Rom spline,
-`c = 1` yields all zero tangents, `c = -1` yields a truncated approximation of
-a cardinal sine, `c = -1/2` yields an interpolating cubic spline with
-continuous second derivatives (inside its support).
-
-Its derivative is given by:
-
-```julia
-CardinalCubicSplinePrime([T=Float64,] c, B=Flat) -> ker
-```
+# CARDINAL CUBIC SPLINES
 
 """
+    CardinalCubicSpline([T=Float64,] c, B=Flat)
+
+yields an instance of a cardinal cubic spline interpolation kernel for
+floating-point type `T`, tension parameter `c` and boundary conditions `B`.
+
+The slope at `x = ±1` is `±(c - 1)/2`.  Usually `c ≤ 1`, choosing `c = 0`
+yields a Catmull-Rom spline (see [`CatmullRomSpline`](@ref)), `c = 1` yields
+all zero tangents, `c = -1` yields a truncated approximation of a cardinal
+sine, `c = -1/2` yields an interpolating cubic spline with continuous second
+derivatives (inside its support).
+
+The expression `ker'` yields a kernel instance which is the 1st derivative of
+the cardinal cubic spline `ker` (also see the constructor
+[`CardinalCubicSplinePrime`](@ref)).
+
+""" CardinalCubicSpline
+
+"""
+    CardinalCubicSplinePrime([T=Float64,] B=Flat)
+
+yields a kernel instance that is the 1st derivative of the cardinal cubic
+spline interpolation kernel (see [`CardinalCubicSpline`](@ref)) for
+floating-point type `T`, tension parameter `c` and boundary conditions `B`.
+
+""" CardinalCubicSplinePrime
+
 struct CardinalCubicSpline{T,B} <: Kernel{T,4,B}
     c::T # cardinal cubic spline parameter
     p::T # slope at x=1
@@ -661,8 +744,6 @@ struct CardinalCubicSplinePrime{T,B} <: Kernel{T,4,B}
     end
 end
 
-@doc @doc(CardinalCubicSpline) CardinalCubicSplinePrime
-
 function CardinalCubicSplinePrime(::Type{T}, c::Real,
                               ::Type{B} = Flat) where {T<:AbstractFloat,
                                                        B<:Boundaries}
@@ -713,23 +794,21 @@ end
 end
 
 #------------------------------------------------------------------------------
+# MITCHELL & NETRAVALI KERNELS
+
 """
-# Mitchell & Netravali Kernels
+    MitchellNetravaliSpline([T=Float64,] [b=1/3, c=1/3,] B=Flat)
 
-```julia
-MitchellNetravaliSpline([T=Float64,] [b=1/3, c=1/3,] B=Flat) -> ker
-```
+yields an instance of the Mitchell & Netravali family of kernels for
+floating-point type `T`, parameters `b` and `c` and boundary conditions `B`.
 
-yields an interpolation kernel of the Mitchell & Netravali family of kernels
-for floating-point type `T`, parameters `b` and `c` and boundary conditions
-`B`.
+These kernels are cubic splines which depends on 2 parameters, `b` and `c`.
+Whatever the values of `(b,c)`, all these kernels are normalized, even
+functions of class C¹ (these kernels and their first derivatives are
+continuous).
 
-These kernels are cubic splines which depends on 2 parameters `b` and `c`.
-whatever the values of `(b,c)`, all these kernels are "normalized", symmetric
-and their value and first derivative are continuous.
-
-Taking `b = 0` is a sufficient and necessary condition to have cardinal
-kernels.  This correspond to Keys's family of kernels.
+Taking `b = 0` yields Keys's family of kernels and is a sufficient and
+necessary condition to have Mitchell & Netravali kernels be cardinal functions.
 
 Using the constraint: `b + 2c = 1` yields a cubic filter with, at least,
 quadratic order approximation.
@@ -742,13 +821,27 @@ Some specific values of `(b,c)` yield other well known kernels:
     (b,c) = (b,0)     ==> Duff's tensioned B-spline
     (b,c) = (1/3,1/3) ==> recommended by Mitchell-Netravali
 
+The expression `ker'` yields a kernel instance which is the 1st derivative of
+the Mitchell & Netravali kernel `ker` (also see the constructor
+[`MitchellNetravaliSplinePrime`](@ref)).
+
 Reference:
 
 * Mitchell & Netravali, "*Reconstruction Filters in Computer Graphics*",
   in Computer Graphics, Vol. 22, Num. 4 (1988).
   http://www.cs.utexas.edu/users/fussell/courses/cs384g/lectures/mitchell/Mitchell.pdf.
 
+""" MitchellNetravaliSpline
+
 """
+    MitchellNetravaliSplinePrime([T=Float64,] [b=1/3, c=1/3,] B=Flat)
+
+yields a kernel instance that is the 1st derivative of the Mitchell & Netravali
+kernel (see [`MitchellNetravaliSpline`](@ref)) for floating-point type `T`,
+parameters `b` and `c` and boundary conditions `B`.
+
+""" MitchellNetravaliSplinePrime
+
 struct MitchellNetravaliSpline{T,B} <: Kernel{T,4,B}
     b ::T
     c ::T
@@ -777,11 +870,11 @@ end
 struct MitchellNetravaliSplinePrime{T,B} <: Kernel{T,4,B}
     b ::T
     c ::T
-    p1::T
-    p2::T
-    q0::T
-    q1::T
-    q2::T
+    dp1::T
+    dp2::T
+    dq0::T
+    dq1::T
+    dq2::T
     function MitchellNetravaliSplinePrime{T,B}(_b::Real,
                                                _c::Real) where {T,B}
         b, c = T(_b), T(_c)
@@ -794,8 +887,6 @@ struct MitchellNetravaliSplinePrime{T,B} <: Kernel{T,4,B}
             (     -    b -  6*c)/2)
     end
 end
-
-@doc @doc(MitchellNetravaliSpline) MitchellNetravaliSplinelPrime
 
 function MitchellNetravaliSpline(::Type{T}, b::Real, c::Real,
                                  ::Type{B} = Flat) where {T<:AbstractFloat,
@@ -877,10 +968,10 @@ end
 end
 
 @inline _p(ker::MitchellNetravaliSplinePrime{T,B}, x::T) where {T,B} =
-    (ker.p2*x + ker.p1)*x
+    (ker.dp2*x + ker.dp1)*x
 
 @inline _q(ker::MitchellNetravaliSplinePrime{T,B}, x::T) where {T,B} =
-    (ker.q2*x + ker.q1)*x + ker.q0
+    (ker.dq2*x + ker.dq1)*x + ker.dq0
 
 function (ker::MitchellNetravaliSplinePrime{T,B})(x::T) where {T<:AbstractFloat,B}
     s, a = signabs(x)
@@ -897,20 +988,17 @@ end
 end
 
 #------------------------------------------------------------------------------
+# KEYS' CARDINAL KERNELS
+
 """
-# Keys cardinal kernels
+    KeysSpline([T=Float64,] a, B=Flat)
 
-```julia
-KeysSpline([T=Float64,] a, B=Flat) -> ker
-```
-
-yields an interpolation kernel of the Keys family of cardinal kernels for
-floating-point type `T`, parameter `a` and boundary conditions `B`.
+yields an instance of the Keys family of cardinal kernels for floating-point
+type `T`, parameter `a` and boundary conditions `B`.
 
 These kernels are piecewise normalized cardinal cubic spline which depend on
-one parameter `a` which is the slope of the spline at abscissa 1.
-
-Keys splines are defined by:
+one parameter `a` which is the slope of the spline at abscissa 1.  Keys
+cardinal kernels are defined by:
 
 ```
 ker(x) = p(abs(x))   if abs(x) ≤ 1
@@ -925,13 +1013,23 @@ p(x) = 1 - (a + 3)*x^2 + (a + 2)*x^3
 q(x) = -4a + 8a*x - 5a*x^2 + a*x^3
 ```
 
-Their derivatives are given by:
+The expression `ker'` yields a kernel instance which is the 1st derivative of
+the Keys kernel `ker` (also see the constructor [`KeysSplinePrime`](@ref)).
 
-```julia
-KeysSplinePrime([T=Float64,] a, B=Flat) -> ker′
-```
+Reference:
 
-defined by:
+* Keys, Robert, G., "Cubic Convolution Interpolation for Digital Image
+  Processing", IEEE Trans. Acoustics, Speech, and Signal Processing,
+  Vol. ASSP-29, No. 6, December 1981, pp. 1153-1160.
+
+""" KeysSpline
+
+"""
+    KeysSplinePrime([T=Float64,] a, B=Flat)
+
+yields a kernel instance that is the 1st derivative of the Keys kernel (see
+[`KeysSpline`](@ref)) for floating-point type `T`, parameter `a` and boundary
+conditions `B`.  This derivative is given by:
 
 ```
 ker′(x) = p′(abs(x))*sign(x)   if abs(x) ≤ 1
@@ -940,18 +1038,14 @@ ker′(x) = p′(abs(x))*sign(x)   if abs(x) ≤ 1
 ```
 
 with:
+
 ```
 p(x) = -2*(a + 3)*x + 3*(a + 2)*x^2
 q(x) = 8a - 10a*x + 3a*x^2
 ```
 
-Reference:
+""" KeysSplinePrime
 
-* Keys, Robert, G., "Cubic Convolution Interpolation for Digital Image
-  Processing", IEEE Trans. Acoustics, Speech, and Signal Processing,
-  Vol. ASSP-29, No. 6, December 1981, pp. 1153-1160.
-
-"""
 struct KeysSpline{T,B} <: Kernel{T,4,B}
     a ::T
     p0::T
@@ -983,8 +1077,6 @@ struct KeysSplinePrime{T,B} <: Kernel{T,4,B}
                  8a, -10a, 3a)
     end
 end
-
-@doc @doc(KeysSpline) KeysSplinePrime
 
 function KeysSpline(::Type{T}, a::Real,
                     ::Type{B} = Flat) where {T<:AbstractFloat, B<:Boundaries}
@@ -1095,28 +1187,35 @@ end
 end
 
 #------------------------------------------------------------------------------
-"""
-# Lanczos Resampling Kernel
-
-```julia
-LanczosKernel([T=Float64,] S, B=Flat)
-```
-
-yields a Lanczos kernel of support size `S` (which must be even), for
-floating-point type `T` and boundary conditions `B`..
-
-The Lanczos kernels doe not have the partition of unity property.  However,
-Lanczos kernels tend to be normalized for large support size.
-
-The derivative of Lanczos kernel of support size `S` is given by:
-
-```julia
-LanczosKernelPrime([T=Float64,] S, B=Flat)
-```
-
-See also: [link](https://en.wikipedia.org/wiki/Lanczos_resampling).
+# LANCZOS RESAMPLING KERNEL
 
 """
+    LanczosKernel([T=Float64,] S, B=Flat)
+
+yields an instance of a Lanczos re-sampling kernel of support size `S` (which
+must be even), for floating-point type `T` and boundary conditions `B`.
+
+The Lanczos re-sampling kernels are even cardinal functions which tend to be
+normalized for large support size.  They are defined by (see also
+https://en.wikipedia.org/wiki/Lanczos_resampling):
+
+    ker(x) = S/(2*(π*x)^2)*sin(π*x)*sin(2*π*x/S)     if |x| ≤ S/2
+             0                                       if |x| ≥ S/2
+
+The expression `ker'` yields the first derivative of a Lanczos re-sampling
+kernel `ker` (also see the constructor [`LanczosKernelPrime`](@ref)).
+
+""" LanczosKernel
+
+"""
+    LanczosKernelPrime([T=Float64,] S, B=Flat)
+
+yields a kernel instance that is the 1st derivative of the Lanczos re-sampling
+kernel (see [`LanczosKernel`](@ref)) of support size `S` and for floating-point
+type `T` and boundary conditions `B`.
+
+""" LanczosKernelPrime
+
 struct LanczosKernel{T,S,B} <: Kernel{T,S,B}
     a::T   # 1/2 support
     b::T   # a/pi^2
@@ -1137,8 +1236,6 @@ struct LanczosKernelPrime{T,S,B} <: Kernel{T,S,B}
         new{T,S,B}(a, T(π)/a)
     end
 end
-
-@doc @doc(LanczosKernel) LanczosKernelPrime
 
 function LanczosKernel(::Type{T}, s::Integer,
                        ::Type{B} = Flat) where {T<:AbstractFloat,
@@ -1238,7 +1335,7 @@ Base.show(io::IO, ::MIME"text/plain", ker::Kernel) = show(io, ker)
 brief(ker)
 ```
 
-yields the name of kernel `ker`.
+yields a brief description of the kernel `ker`.
 
 """ brief
 
