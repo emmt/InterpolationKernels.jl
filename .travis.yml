@@ -12,12 +12,6 @@ julia:
   - 1.4
   - nightly
 
-# Uncomment the following lines to allow failures on nightly julia
-# (tests will run but not make your overall status red)
-matrix:
-  allow_failures:
-    - julia: nightly
-
 notifications:
   email: false
 
@@ -26,6 +20,8 @@ codecov: true
 coveralls: true
 
 jobs:
+  allow_failures:
+    - julia: nightly
   include:
     - stage: "Documentation"
       julia: 1.4
