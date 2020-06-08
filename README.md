@@ -4,16 +4,16 @@
 |:--------------------------------|:--------------------------------|:----------------------------------------------------------------|:--------------------------------------------------------------------|
 | [![][doc-dev-img]][doc-dev-url] | [![][license-img]][license-url] | [![][travis-img]][travis-url] [![][appveyor-img]][appveyor-url] | [![][coveralls-img]][coveralls-url] [![][codecov-img]][codecov-url] |
 
-The InterpolationKernels package provides a library of interpolation kernels
-for Julia.
+The `InterpolationKernels` package provides a library of interpolation kernels
+for [Julia](https://julialang.org/).
 
-## Installation
+You may have a look at some sections of the [the latest
+documentation](https://emmt.github.io/InterpolationKernels.jl/dev/):
 
-InterpolationKernels can be installed by Julia's package manager:
+- [List of provided kernels](https://emmt.github.io/InterpolationKernels.jl/dev/kernels/).
+- [Principles of interpolation](https://emmt.github.io/InterpolationKernels.jl/dev/interpolation/).
+- [Instructions for installation](https://emmt.github.io/InterpolationKernels.jl/dev/install/).
 
-```julia
-pkg> add https://github.com/emmt/InterpolationKernels.jl
-```
 
 [doc-stable-img]: https://img.shields.io/badge/docs-stable-blue.svg
 [doc-stable-url]: https://emmt.github.io/InterpolationKernels.jl/stable

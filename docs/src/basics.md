@@ -65,8 +65,8 @@ given by interpolating the same array with the kernel `ker`.
 ## Interpolation weights
 
 Efficient computation of interpolation weights is implemented by the
-[`getweights`](@ref).  The principles of interpolation are detailed in [another
-section](interpolation.md).
+[`getweights`](@ref) method.  The principles of interpolation are detailed in
+[another section](interpolation.md).
 
 
 ## Kernel conversion

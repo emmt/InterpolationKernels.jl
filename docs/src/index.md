@@ -1,4 +1,4 @@
-# Interpolation kernels for Julia
+# Introduction
 
 The `InterpolationKernels` package provides a library of interpolation kernels
 for [Julia](https://julialang.org/).
