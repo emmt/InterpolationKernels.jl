@@ -2,7 +2,8 @@
 
 Interpolation kernels, as their name suggest, are designed for interpolating
 arrays.  The `InterpolationKernels` package provides the [`getweights`](@ref)
-method to compute interpolation weights for a given kernel and offset.
+method to efficiently compute interpolation weights for a given kernel and
+offset.
 
 
 ## Interpolation principles

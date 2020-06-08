@@ -14,6 +14,13 @@ documentation](https://emmt.github.io/InterpolationKernels.jl/dev/):
 - [Principles of interpolation](https://emmt.github.io/InterpolationKernels.jl/dev/interpolation/).
 - [Instructions for installation](https://emmt.github.io/InterpolationKernels.jl/dev/install/).
 
+The `InterpolationKernels` package is used by:
+
+- [FineShift](https://github.com/emmt/FineShift.jl), a Julia package for
+  fast sub-sample shifting of arrays.
+
+- [LinearInterpolators](https://github.com/emmt/LinearInterpolators.jl) which implements
+  various interpolation methods for Julia as linear mappings.
 
 [doc-stable-img]: https://img.shields.io/badge/docs-stable-blue.svg
 [doc-stable-url]: https://emmt.github.io/InterpolationKernels.jl/stable

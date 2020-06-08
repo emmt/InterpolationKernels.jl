@@ -49,14 +49,14 @@ Methods [`iscardinal`](@ref) and [`isnormalized`](@ref) can be used to query
 whether a kernel is a cardinal function (that is a function which yields zero
 for all non-zero integers) and whether a kernel has the partition of unity
 property.  For some parametric kernels, these traits depend on the specific
-values of the parameters so these methods take a kerenl insta,ce (not a type)
+values of the parameters so these methods take a kernel instance (not a type)
 as argument.
 
 
 ## Derivative
 
 The expression `ker'` yields a kernel instance which is the 1st derivative of
-the kernel `ker`.  Having the derivative if a kernel is useful because, thanks
+the kernel `ker`.  Having the derivative of a kernel is useful because, thanks
 to linearity of the interpolation, interpolating an array with the derivative
 `ker'` is equivalent of taking the 1st derivative of the continuous function
 given by interpolating the same array with the kernel `ker`.
