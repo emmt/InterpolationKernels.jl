@@ -17,6 +17,6 @@ makedocs(
 
 if DEPLOYDOCS
     deploydocs(
-        repo = "github.com/emmt/ArrayTools.jl.git",
+        repo = "github.com/emmt/InterpolationKernels.jl.git",
     )
 end
