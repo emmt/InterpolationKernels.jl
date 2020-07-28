@@ -132,7 +132,7 @@ entries in the interpolated array involved in the interpolation formula.
 For developers who would like to implement other kernels than those provided by
 `InterpolationKernels`, it is necessary to derive the general formula for the
 weights as functions of the offset `t`.  Recalling that `w[k] = ker(v - k)`
-with `v = x + ceil(S/2 - x)`, the identity `ceil(-u) = floor(u)` for any real
+with `v = x + ceil(S/2 - x)`, the identity `ceil(-u) = -floor(u)` for any real
 `u` can be used to rewrite `v` as:
 
 ```julia
