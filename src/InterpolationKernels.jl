@@ -190,7 +190,6 @@ import Base: size
 @deprecate size(ker::Type{<:Kernel}) (length(ker),)
 
 """
-
     boundaries(ker)
 
 yields the type of the boundary conditions that hold for extrapolation with
@@ -201,7 +200,6 @@ boundaries(::Kernel{T,S,B})         where {T,S,B} = B
 boundaries(::Type{<:Kernel{T,S,B}}) where {T,S,B} = B
 
 """
-
     isnormalized(ker)
 
 yields whether the kernel `ker` has the partition of unity property.  That is,
@@ -212,11 +210,10 @@ equal to one.
 function isnormalized end
 
 """
-
     iscardinal(ker)
 
 yields whether the kernel `ker` is zero for non-zero integer arguments.
-Cardinal kernels are directly suitbale for interpolation.
+Cardinal kernels are directly suitable for interpolation.
 
 """
 function iscardinal end
@@ -815,11 +812,12 @@ quadratic order approximation.
 
 Some specific values of `(b,c)` yield other well known kernels:
 
-    (b,c) = (1,0)     ==> cubic B-spline
-    (b,c) = (0,-a)    ==> Keys's cardinal cubics
-    (b,c) = (0,1/2)   ==> Catmull-Rom cubics
-    (b,c) = (b,0)     ==> Duff's tensioned B-spline
-    (b,c) = (1/3,1/3) ==> recommended by Mitchell-Netravali
+    (b,c) = (1,0)       ==> cubic B-spline
+    (b,c) = (0,-a)      ==> Keys's cardinal cubics
+    (b,c) = (0,(1-a)/2) ==> cardinal cubic spline
+    (b,c) = (0,1/2)     ==> Catmull-Rom cubics
+    (b,c) = (b,0)       ==> Duff's tensioned B-spline
+    (b,c) = (1/3,1/3)   ==> recommended by Mitchell-Netravali
 
 The expression `ker'` yields a kernel instance which is the 1st derivative of
 the Mitchell & Netravali kernel `ker` (also see the constructor
