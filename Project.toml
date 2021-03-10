@@ -1,7 +1,7 @@
 name = "InterpolationKernels"
 uuid = "16730964-a2ec-11e9-36fa-47a4f82bfac6"
 authors = ["Éric Thiébaut <https://github.com/emmt>"]
-version = "0.1.0"
+version = "0.1.1"
 
 [deps]
 Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
