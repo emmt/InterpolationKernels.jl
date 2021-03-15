@@ -11,7 +11,7 @@ makedocs(
         prettyurls = DEPLOYDOCS,
     ),
     authors = "Éric Thiébaut and contributors",
-    pages = ["index.md", "install.md", "basics.md", "kernels.md", "boundaries.md",
+    pages = ["index.md", "install.md", "basics.md", "kernels.md",
          "interpolation.md", "library.md"]
 )
 

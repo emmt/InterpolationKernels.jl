@@ -9,195 +9,107 @@
 # This file is part of the InterpolationKernels package licensed under the MIT
 # "Expat" License.
 #
-# Copyright (C) 2016-2019, Éric Thiébaut.
+# Copyright (C) 2016-2021, Éric Thiébaut.
 #
 
 module InterpolationKernels
 
 export
-    Boundaries,
+    BSpline,
+    BSplinePrime,
     CardinalCubicSpline,
     CardinalCubicSplinePrime,
     CatmullRomSpline,
     CatmullRomSplinePrime,
     CubicSpline,
     CubicSplinePrime,
-    Flat,
     Kernel,
-    KeysSpline,
-    KeysSplinePrime,
     LanczosKernel,
     LanczosKernelPrime,
-    LinearSpline,
-    LinearSplinePrime,
     MitchellNetravaliSpline,
     MitchellNetravaliSplinePrime,
-    #Periodic,
-    QuadraticSpline,
-    QuadraticSplinePrime,
-    RectangularSpline,
-    RectangularSplinePrime,
-    #Reflect,
-    SafeFlat,
-    boundaries,
-    getweights,
     iscardinal,
-    isnormalized,
-    brief
+    isnormalized
 
-import Base: convert, adjoint
-using Printf
-using InteractiveUtils # for subtypes
+import Base: convert, adjoint, values
+# FIXME: unused using Printf
+# FIXME: unused using InteractiveUtils # for subtypes
 
-#------------------------------------------------------------------------------
-# EXTRAPOLATION METHODS
-
-"""
-
-All extrapolation methods (a.k.a. boundary conditions) are singletons and
-inherit from the abstract type `Boundaries`.
-
-"""
-abstract type Boundaries end
-
-"""
-
-Type `Flat` indicates that *flat* boundary conditions hold.  These conditions
-assume that the value of the nearest sample is used when extrapolating.
-
-"""
-struct Flat <: Boundaries; end
-
-"""
-
-Type `SafeFlat` indicates that *flat* boundary conditions hold.  These
-conditions as similar to the ones assumed by `Flat` conditions but are safer
-because they account for possible integer overflows when converting coordinates
-to indices.  As a consequence, applying `SafeFlat` boundary conditions is
-slower than applying `Safe` boundary conditions.
-
-"""
-struct SafeFlat <: Boundaries; end
-
-#struct Periodic <: Boundaries; end
-#struct Reflect  <: Boundaries; end
+const FLOATS = (:BigFloat, :Float16, :Float32, :Float64)
+const Floats = @eval $(Expr(:curly, :Union, FLOATS...))
 
 #------------------------------------------------------------------------------
 # INTERPOLATION KERNELS
 
-@inline frac(::Type{T}, num::Integer, den::Integer) where {T<:AbstractFloat} =
-    (T(num)/T(den))
-
-@inline square(x) = x*x
-@inline cube(x) = x*x*x
-
-@inline signabs(x::Real) = ifelse(x < 0, (oftype(one(x),-1), -x), (one(x), x))
-
 """
 # Interpolation Kernels
 
-An interpolation kernel `Kernel{T,S,B}` is parametrized by the floating-point
-type `T` of its coefficients, by the size `S` of its support and by the
-boundary conditions `B` to apply for extrapolation.  For efficiency reasons,
-only kernels with (small) finite size supports are implemented.
+An interpolation kernel `Kernel{T,S}` is parametrized by the floating-point
+type `T` of its coefficients and by the integer size `S` of its support.  For
+efficiency reasons, only kernels with (small) finite size supports are
+implemented.
 
 A kernel `ker` is a callable object which may be used as a function with a real
 argument:
 
     ker(x::Real)
 
-yields kernel value at offset `x`.  All kernel supports are symmetric; that is
-`ker(x)` is zero if `abs(x) > S/2` with `S` the size of the kernel support.
+yields kernel value at offset `x`.  Whatever the type of `x`, `ker(x)` is
+always of type `T = eltype(ker)` the floating-point type associated with `ker`.
+All kernel supports are symmetric; that is `ker(x)` is zero if `abs(x) > S/2`
+with `S = length(ker)` the size of the kernel support.
 
 
-## Kernel conversion
+## Kernel floating-point type conversion
 
-The argument of a kernel be a floating-point type and/or a boundary conditions
-type:
+Called as a function with a real argument, a given kernel returns a value of
+its associated floating-point type.  This has been chosen to have fast
+interpolation methods.  Converting a kernel `ker` to use floating-point type
+`T` is simply done by one of:
 
-    ker(::Type{T}, ::Type{B}) where {T<:AbstractFloat, B<:Boundaries}
+    T(ker)
+    Kernel{T}(ker)
+    convert(Kernel{T}, ker)
 
-to convert the kernel to operate with given floating-point type `T` and use
-boundary conditions `B` (any of which can be omitted and their order is
-irrelevant).  Beware that changing the floating-point type may lead to a
-loss of precision if the new floating-point type has more digits).
+Beware that changing the floating-point type may lead to a loss of precision if
+the kernel has numerical parameters.
 
-It is possible to change the floating-point type of a kernel or its boundary
-conditions by something like:
 
-```julia
-Float32(ker)    # change floating-point type of kernel `ker`
-SafeFlat(ker)   # change boundary conditions of kernel `ker`
-```
+## Common methods
 
-The above calls do not follow the usuall conventions that a constructor may be
-called to convert its argument(s) to an instance of its type, this is however
-practical considering the following more rigorous calls to repectively change
-the the floating-point type and boundary conditions of kernel `ker`:
+A few common methods are specialized for any interpolation kernel `ker`:
 
-```julia
-convert(Kernel{Float32}, ker)
-convert(Kernel{eltype(ker),length(ker),SafeFlat}, ker)
-```
-
-## Available methods
-
-The following methods are available for any interpolation kernel `ker`:
-
-```julia
-eltype(ker) -> T
-```
+    eltype(ker) -> T
 
 yields the floating-point type for calculations,
 
-```julia
-length(ker) -> S
-size(ker)   -> (S,)
-```
+    length(ker) -> S
 
 yield the size the support of `ker` which is also the number of neighbors
 involved in an interpolation by this kernel,
 
-```julia
-boundaries(ker) -> B
-```
+    values(ker)
 
-yields the type of the boundary conditions applied for extrapolation; finally:
+yields a tuple of the parameters of `ker` such that an identical instance can
+be built by:
 
-```julia
-getweights(ker, t) -> w1, w2, ..., wS
-```
+    typeof(ker)(values(ker)...)
 
-yields the `S` interpolation weights for offset `t`
+finally:
 
-```
-t = x - floor(x)        if s is even
-    x - round(x)        if s is odd
-```
+    getcoefs(ker, x) -> off, (w1, w2, ..., wS)
 
-`t ∈ [0,1]` if `S` is even or for offset `t ∈ [-1/2,+1/2]` if `S` is odd.
+yields the offset `off` and an `S`-tuple of interpolation weights to
+interpolate an array at coordinate `x` (in fractional index units).
 
 """
-abstract type Kernel{T<:AbstractFloat,S,B<:Boundaries} <: Function end
+abstract type Kernel{T<:Floats,S} <: Function end
 
-Base.eltype(::Kernel{T,S,B})         where {T,S,B} = T
-Base.eltype(::Type{<:Kernel{T,S,B}}) where {T,S,B} = T
-Base.length(::Kernel{T,S,B})         where {T,S,B} = S
-Base.length(::Type{<:Kernel{T,S,B}}) where {T,S,B} = S
+Base.eltype(ker::Kernel) = eltype(typeof(ker))
+Base.eltype(::Type{<:Kernel{T,S}}) where {T,S} = T
 
-import Base: size
-@deprecate size(ker::Kernel)         (length(ker),)
-@deprecate size(ker::Type{<:Kernel}) (length(ker),)
-
-"""
-    boundaries(ker)
-
-yields the type of the boundary conditions that hold for extrapolation with
-kernel `ker`.
-
-"""
-boundaries(::Kernel{T,S,B})         where {T,S,B} = B
-boundaries(::Type{<:Kernel{T,S,B}}) where {T,S,B} = B
+Base.length(ker::Kernel) = length(typeof(ker))
+Base.length(::Type{<:Kernel{T,S}}) where {T,S} = S
 
 """
     isnormalized(ker)
@@ -206,8 +118,7 @@ yields whether the kernel `ker` has the partition of unity property.  That is,
 the sum of the values computed by the kernel `ker` on a unit spaced grid is
 equal to one.
 
-"""
-function isnormalized end
+""" isnormalized
 
 """
     iscardinal(ker)
@@ -215,274 +126,308 @@ function isnormalized end
 yields whether the kernel `ker` is zero for non-zero integer arguments.
 Cardinal kernels are directly suitable for interpolation.
 
-"""
-function iscardinal end
+""" iscardinal
 
 """
-    getweights(ker, x - j) -> w1, w2, ..., wS
+    getcoefs(ker, x) -> off, wgt
 
-yields the `S`-tuple of the weights for interpolating around position `x` (in
-fractional index units) with kernel `ker` (`S` is the size of the kernel
-support).  The index `j` is given by:
+yields the index offset `off` and the weights `wgt` to interpolate with kernel
+`ker` at position `x` in fractional index units.  The offset is a scalar and
+the weights are an `n`-tuple with `n = length(ker)` the size of the support of
+the kernel, all returned values have the same floating point type `eltype(ker)`
+as the kernel.
 
-    j = floor(x)   #  if `S` is even
-    j = round(x)   #  if `S` is odd
+Not taking into account boundary conditions, interpolating a vector `A` at
+position `x` would then write:
 
-(the rounding direction does not matter for the result of the interpolation).
-The offset `t = x - j` is therefore in the range `[0,1]` for `S` even and in
-the range `[-1/2,+1/2]` for `S` odd.
+    off, wgt = getcoefs(ker, x)
+    k = Int(off) # here boundary conditions should be imposed
+    result = wgt[1]*A[k+1] + ... + wgt[n]*A[k+n]
+
+Note that 1-based indexing is assumed by `getcoefs` to interpret the
+position `x` and compute the offset `off`.  If this is not the case, the code
+should be:
+
+    j1 = first(axes(A,1)) # first index in A
+    off, wgt = getcoefs(ker, x - (j1 - 1))
+    k = Int(off) + (j1 - 1) # here boundary conditions should be imposed
+    result = wgt[1]*A[k+1] + ... + wgt[n]*A[k+n]
+
+where expression `x - (j1 - 1)` is assuming that the position `x` is in
+fractional index for `A`, that is `x = j1` at the first entry of `A`.
+
+See [`InterpolationKernels.getweights`](@ref) to only compute the interpolation
+weights.
+
+""" getcoefs
+
+@generated function getcoefs(ker::Kernel{T,S}, x::T) where {T,S}
+    if isodd(S)
+        quote
+            $(Expr(:meta, :inline))
+            round_x = round(x)
+            wgts = getweights(ker, x - round_x)
+            off = round_x - $((S + 1) >> 1)
+            return off, wgts
+        end
+    else
+        quote
+            $(Expr(:meta, :inline))
+            floor_x = floor(x)
+            wgts = getweights(ker, x - floor_x)
+            off = floor_x - $(S >> 1)
+            return off, wgts
+        end
+    end
+end
+
+# This generic version is to check code.  It is never automatically called.
+@generated function generic_getcoefs(ker::Kernel{T,S}, x::T) where {T,S}
+    wgt = ntuple(i -> Symbol("w_",i), Val(S))
+    exprs = [:($(wgt[j]) = ker(u - $j)) for j in 1:S]
+    quote
+        $(Expr(:meta, :inline))
+        off = floor(x - sup(ker))
+        u = x - off
+        $(exprs...)
+        return off, $(Expr(:tuple, wgt...))
+    end
+end
 
 """
-function getweights end
+    getweights(ker, t) -> wgt
+
+computes the interpolation weights returned by
+[`InterpolationKernels.getcoefs`](@ref) for kernel `ker`.  Assuming
+interpolation is performed at at position `x`, argument `t` is given by:
+
+     t = x - floor(x)     if length(ker) is even
+     t = x - round(x)     if length(ker) is odd
+
+The returned weights are then:
+
+     wgt = ntuple(i -> ker(t + k - i), length(ker))
+
+where `k = (length(ker) + 1) >> 1` (i.e., integer division of `length(ker)+1`
+by 2).  These conventions have been adopted so that, by specializing the
+`getweights` method, computing the `length(ker)` weights at the same time may
+be done in much fewer operations than calling `ker` as a function for each
+weight.
+
+""" getweights
+
+# Call generic version by default.  The generic version has a different name so
+# that it can be used to check optimized versions.  Must be in-lined.
+@inline getweights(ker::Kernel{T}, t::T) where {T} =
+    generic_getweights(ker, t)
+
+@generated function generic_getweights(ker::Kernel{T,S}, t::T) where {T,S}
+    k = ((S + 1) >> 1)
+    exprs = [(j < 0 ? :(ker(t + $(-j))) :
+              j > 0 ? :(ker(t - $j)) : :(ker(t))) for j in 1-k:S-k]
+    return quote
+        $(Expr(:meta, :inline))
+        return $(Expr(:tuple, exprs...))
+    end
+end
+
+"""
+    InterpolationKernels.sup(ker) -> b
+
+yields the smallest value `b` such `x ≥ b` implies that `ker(x) = 0` where
+`ker` is an interpolation kernel.  The result does only depend on the kernel
+type (i.e., it is known at compile time) and argument `ker` can also be a type.
+
+"""
+sup(ker::Kernel) = sup(typeof(ker))
+sup(::Type{<:Kernel{T,S}}) where {T,S} = T(S)/2
+
+"""
+    InterpolationKernels.inf(ker) -> a
+
+yields the largest value `a` such `x < a` implies that `ker(x) = 0` where `ker`
+is a, interpolation kernel.  The result does only depend on the kernel type
+(i.e., it is known at compile time) and argument `ker` can also be a type.
+
+"""
+inf(ker::Kernel) = inf(typeof(ker))
+inf(::Type{K}) where {T,S,K<:Kernel{T,S}} = sup(K) - S
+
+@inline offset(ker::Union{K,Type{K}}, x::T) where {T,K<:Kernel{T}} =
+    floor(x - sup(ker))
+
+"""
+    values(ker::InterpolationKernels.Kernel)
+
+yields a tuple of the parameters of the interpolation kernel `ker` such that an
+identical instance can be built by:
+
+    typeof(ker)(values(ker)...)
+
+"""
+values(::Kernel) = ()
 
 #------------------------------------------------------------------------------
-# RECTANGULAR B-SPLINE
+# B-SPLINES
 
 """
-    RectangularSpline([T=Float64,] B=Flat)
+    BSpline{S,T}()
 
-yields an instance of the rectangular spline for floating-point type `T` and
-boundary conditions `B`.
+yields a B-spline (short for *basis spline*) of order `S` for floating-point
+`T`.  A B-spline of order `S` is a piecewise polynomial function of degree `S -
+1` on a support of length `S`.
 
-The rectangular spline (also known as *box kernel*, as *Fourier window* or as
-*Dirichlet window*) is the 1st order (constant) B-spline equals to `1` on
-`[-1/2,+1/2)`, and `0` elsewhere.
+Not all B-spline are implemented in `InterpolationKernels`:, `S` must be: `1`
+(for a **rectangular** B-spline), `2` (for a **linear** B-spline), `3` (for a
+**quadratic** B-spline), or `4` (for a **cubic** B-spline).
 
-The expression `ker'` yields a kernel instance which is the 1st derivative of
-the rectangular spline `ker` (also see the constructor
-[`RectangularSplinePrime`](@ref)).
+""" BSpline
 
-""" RectangularSpline
-
-"""
-    RectangularSplinePrime([T=Float64,] B=Flat)
-
-yields a kernel instance that is the 1st derivative of the rectangular spline
-(see [`RectangularSpline`](@ref)) for floating-point type `T` and boundary
-conditions `B`.
-
-""" RectangularSplinePrime
-
-struct RectangularSpline{T,B} <: Kernel{T,1,B}; end
-struct RectangularSplinePrime{T,B} <: Kernel{T,1,B}; end
-
-iscardinal(::Union{K,Type{K}}) where {K<:RectangularSpline} = true
-iscardinal(::Union{K,Type{K}}) where {K<:RectangularSplinePrime} = false
-
-isnormalized(::Union{K,Type{K}}) where {K<:RectangularSpline} = true
-isnormalized(::Union{K,Type{K}}) where {K<:RectangularSplinePrime} = false
-
-Base.show(io::IO, ::RectangularSpline) = print(io, "RectangularSpline()")
-Base.show(io::IO, ::RectangularSplinePrime) = print(io, "RectangularSplinePrime()")
-
-(::RectangularSpline{T,B})(x::T) where {T,B} =
-    frac(T,-1,2) ≤ x < frac(T,1,2) ? one(T) : zero(T)
-
-@inline getweights(::RectangularSpline{T,B}, t::T) where {T,B} = one(T)
-
-(::RectangularSplinePrime{T,B})(x::T) where {T,B} = zero(T)
-
-@inline getweights(::RectangularSplinePrime{T,B}, t::T) where {T,B} = zero(T)
-
-#------------------------------------------------------------------------------
-# LINEAR B-SPLINE
+struct BSpline{S,T} <: Kernel{T,S} end
 
 """
-    LinearSpline([T=Float64,] B=Flat)
+    BSplinePrime{S,T}()
 
-yields an instance of the linear spline for floating-point type `T` and
-boundary conditions `B`.
+yields the derivative of a B-spline of order `S` for floating-point `T`.
 
-The linear spline (also known as *triangle kernel*, as *Bartlett window* or as
-*Fejér window*) is the 2nd order (linear) B-spline given by:
+See [`InterpolationKernels.BSpline`](@ref).
 
-    ker(x) = 1 - |x|       if |x| ≤ 1
-             0             if |x| ≥ 1
+""" BSplinePrime
 
-The expression `ker'` yields a kernel instance which is the 1st derivative of
-the linear spline `ker` (also see the constructor
-[`LinearSplinePrime`](@ref)).
+struct BSplinePrime{S,T} <: Kernel{T,S} end
 
-""" LinearSpline
+# Outer Constructors.
+BSpline{S}() where {S} = BSpline{S,Float64}()
+BSplinePrime{S}() where {S} = BSplinePrime{S,Float64}()
 
-"""
-    LinearSplinePrime([T=Float64,] B=Flat)
+# Only the 2 first B-splines are interpolating.
+iscardinal(::Union{K,Type{K}}) where {K<:BSpline{1}} = true
+iscardinal(::Union{K,Type{K}}) where {K<:BSpline{2}} = true
+iscardinal(::Union{K,Type{K}}) where {K<:BSpline} = false
+iscardinal(::Union{K,Type{K}}) where {K<:BSplinePrime} = false
 
-yields a kernel instance that is the 1st derivative of the linear spline
-(see [`LinearSpline`](@ref)) for floating-point type `T` and boundary
-conditions `B`.
+# All B-splines are normalized, not their derivative.
+isnormalized(::Union{K,Type{K}}) where {K<:BSpline} = true
+isnormalized(::Union{K,Type{K}}) where {K<:BSplinePrime} = false
 
-""" LinearSplinePrime
+#
+# Rectangular B-spline
+# --------------------
+#
+@inline (::BSpline{1,T})(x::T) where {T} =
+    ifelse((x < frac(T,-1,2))|(x ≥ frac(T,1,2)), zero(T), one(T))
+getcoefs(::BSpline{1,T}, x::T) where {T} = (round(x) - 1, (one(T),))
+getweights(::BSpline{1,T}, t::T) where {T} = (one(T),)
 
-struct LinearSpline{T,B} <: Kernel{T,2,B}; end
-struct LinearSplinePrime{T,B} <: Kernel{T,2,B}; end
+(::BSplinePrime{1,T})(x::T) where {T} = zero(T)
+getcoefs(::BSplinePrime{1,T}, x::T) where {T} = (round(x) - 1, (zero(T),))
+getweights(::BSplinePrime{1,T}, t::T) where {T} = (zero(T),)
 
-iscardinal(::Union{K,Type{K}}) where {K<:LinearSpline} = true
-iscardinal(::Union{K,Type{K}}) where {K<:LinearSplinePrime} = false
+#
+# Linear B-splines
+# ----------------
+#
+@inline function (::BSpline{2,T})(x::T) where {T}
+    abs_x = abs(x)
+    return ifelse(abs_x < 1, 1 - abs_x, zero(T))
+end
 
-isnormalized(::Union{K,Type{K}}) where {K<:LinearSpline} = true
-isnormalized(::Union{K,Type{K}}) where {K<:LinearSplinePrime} = false
-
-Base.show(io::IO, ::LinearSpline) = print(io, "LinearSpline()")
-Base.show(io::IO, ::LinearSplinePrime) = print(io, "LinearSplinePrime()")
-
-(::LinearSpline{T,B})(x::T) where {T<:AbstractFloat,B} =
-    (a = abs(x); a < 1 ? 1 - a : zero(T))
-
-@inline getweights(::LinearSpline{T,B}, t::T) where {T<:AbstractFloat,B} =
-    (1 - t, t)
+getweights(ker::BSpline{2,T}, t::T) where {T} = (1 - t, t)
 
 # The derivative of the linear B-spline must be non-symmetric for tests to
 # succeed.  In particular we want that interpolating with the derivative of the
 # linear B-spline amounts to taking the finite difference when 0 ≤ t < 1.
 # This implies that f'(x) = 1 for x ∈ [-1,0), f'(x) = -1 for x ∈ [0,1), and
 # f'(x) = 0 elsewhere.
-(::LinearSplinePrime{T,B})(x::T) where {T<:AbstractFloat,B} =
-    -1 ≤ x < 1 ? (x < 0 ? one(T) : -one(T)) : zero(T)
-
-@inline getweights(::LinearSplinePrime{T,B}, t::T) where {T<:AbstractFloat,B} =
-    (-one(T), one(T))
-
-#------------------------------------------------------------------------------
-# QUADRATIC B-SPLINE
-
-"""
-    QuadraticSpline([T=Float64,] B=Flat)
-
-yields an instance of the quadratic spline for floating-point type `T` and
-boundary conditions `B`.
-
-The quadratic spline is the 3rd order (quadratic) B-spline given by:
-
-    ker(x) = 3/4 - x^2                   if |x| ≤ 1/2
-             (1/2)*(|x| - 3/2)^2         if |x| ≤ 3/2
-             0                           if |x| ≥ 3/2
-
-The expression `ker'` yields a kernel instance which is the 1st derivative of
-the quadratic spline `ker` (also see the constructor
-[`QuadraticSplinePrime`](@ref)).
-
-""" QuadraticSpline
-
-"""
-    QuadraticSplinePrime([T=Float64,] B=Flat)
-
-yields a kernel instance that is the 1st derivative of the quadratic spline
-(see [`QuadraticSpline`](@ref)) for floating-point type `T` and boundary
-conditions `B`.
-
-""" QuadraticSplinePrime
-
-struct QuadraticSpline{T,B} <: Kernel{T,3,B}; end
-struct QuadraticSplinePrime{T,B} <: Kernel{T,3,B}; end
-
-iscardinal(::Union{K,Type{K}}) where {K<:QuadraticSpline} = false
-iscardinal(::Union{K,Type{K}}) where {K<:QuadraticSplinePrime} = false
-
-isnormalized(::Union{K,Type{K}}) where {K<:QuadraticSpline} = true
-isnormalized(::Union{K,Type{K}}) where {K<:QuadraticSplinePrime} = false
-
-Base.show(io::IO, ::QuadraticSpline) = print(io, "QuadraticSpline()")
-Base.show(io::IO, ::QuadraticSplinePrime) = print(io, "QuadraticSplinePrime()")
-
-function (::QuadraticSpline{T,B})(x::T) where {T<:AbstractFloat,B<:Boundaries}
-    a = abs(x)
-    return (a ≥ frac(T,3,2) ? zero(T) :
-            a ≤ frac(T,1,2) ? frac(T,3,4) - a*a :
-            square(a - frac(T,3,2))*frac(T,1,2))
-end
-
-@static if false
-    # Compute quadratic B-spline weights in 8 operations.
-    @inline function getweights(::QuadraticSpline{T,B},
-                                t::T) where {T<:AbstractFloat,B}
-        # w1 = (1/8)*(1 - 2*t)^2 = (1/2)*((1/2) - t)^2
-        # w2 = (3/4) - t^2
-        # w3 = (1/8)*(1 + 2*t)^2 = (1/2)*((1/2) + t)^2
-        h = frac(T,1,2)
-        return (h*square(h - t), frac(T,3,4) - t*t, h*square(h + t))
-    end
-else
-    # Same result, but with 7 operations.
-    @inline function getweights(::QuadraticSpline{T,B},
-                                t::T) where {T<:AbstractFloat,B}
-        # c1 = 1/sqrt(8)
-        c1 = T(0.35355339059327376220042218105242451964241796884424)
-        # c2 = 2/sqrt(8)
-        c2 = T(0.70710678118654752440084436210484903928483593768847)
-        # c2 = 3/4
-        c3 = frac(T,3,4)
-        c2t = c2*t
-        q1 = c1 - c2t
-        q3 = c1 + c2t
-        return (q1*q1, c3 - t*t, q3*q3)
+@inline function (::BSplinePrime{2,T})(x::T) where {T}
+    if (x < -1)|(x ≥ 1)
+        return zero(T)
+    elseif x < 0
+        return one(T)
+    else
+        return -one(T)
     end
 end
 
-(::QuadraticSplinePrime{T,B})(x::T) where {T,B} =
-    frac(T,-3,2) < x < frac(T,3,2) ? (
-        x < frac(T,-1,2) ? x + frac(T,3,2) :
-        x ≤ frac(T,1,2) ? -2x : x - frac(T,3,2)
-    ) : zero(T)
+getweights(ker::BSplinePrime{2,T}, t::T) where {T} = (-one(T), one(T))
 
-@inline function getweights(::QuadraticSplinePrime{T,B},
-                            t::T) where {T<:AbstractFloat,B}
+#
+# Quadratic B-splines
+# -------------------
+#
+@inline function (::BSpline{3,T})(x::T) where {T}
+    abs_x = abs(x)
+    if abs_x ≥ frac(T,3,2)
+        return zero(T)
+    elseif abs_x ≤ frac(T,1,2)
+        return frac(T,3,4) - abs_x*abs_x
+    else
+        return square(abs_x - frac(T,3,2))*frac(T,1,2)
+    end
+end
+
+@inline function getweights(ker::BSpline{3,T}, t::T) where {T}
+    #
+    # Given `t = x - round(x)`, the weights are:
+    #
+    #     w1 = (1/8)*(1 - 2*t)^2 = (1/2)*(1/sqrt(2) - t)^2
+    #     w2 = (3/4) - t^2
+    #     w3 = (1/8)*(1 + 2*t)^2 = (1/2)*(1/sqrt(2) + t)^2
+    #
+    # which can be computed in 9 operations using the following factorized
+    # expressions:
+    #
+    #     w1 = (1/2)*(1/sqrt(2) - t)^2
+    #     w2 = (3/4) - t^2
+    #     w3 = (1/2)*(1/sqrt(2) + t)^2
+    #
+    # or in 7 operations:
+    #
+    ht = t/2
+    w = frac(T,1,8) + ht*t
+    w1 = w - ht
+    w2 = frac(T,3,4) - t*t
+    w3 = w + ht
+    return (w1, w2, w3)
+end
+
+@inline function (::BSplinePrime{3,T})(x::T) where {T}
+    if (x ≤ frac(T,-3,2))|(x ≥ frac(T,3,2))
+        return zero(T)
+    elseif x < frac(T,-1,2)
+        return x + frac(T,3,2)
+    elseif x ≤ frac(T,1,2)
+        return -2x
+    else
+        return x - frac(T,3,2)
+    end
+end
+
+@inline function getweights(ker::BSplinePrime{3,T}, t::T) where {T}
+    # 3 operations
     h = frac(T,1,2)
     return (t - h, -2t, t + h)
 end
 
-#------------------------------------------------------------------------------
-# CUBIC B-SPLINE
-
-"""
-    CubicSpline([T=Float64,] B=Flat)
-
-yields an instance of the cubic spline for floating-point type `T` and
-boundary conditions `B`.
-
-The 4th order (cubic) B-spline kernel is also known as *Parzen window* or as *de la
-Vallée Poussin window*.   It is given by:
-
-    ker(x) = 2/3 + (|x|/2 - 1)*x^2       if |x| ≤ 1
-             (1/6)*(2 - |x|)^2           if |x| ≤ 2
-             0                           if |x| ≥ 2
-
-The expression `ker'` yields a kernel instance which is the 1st derivative of
-the cubic spline `ker` (also see the constructor
-[`CubicSplinePrime`](@ref)).
-
-""" CubicSpline
-
-"""
-    CubicSplinePrime([T=Float64,] B=Flat)
-
-yields a kernel instance that is the 1st derivative of the cubic spline (see
-[`CubicSpline`](@ref)) for floating-point type `T` and boundary conditions `B`.
-
-""" CubicSplinePrime
-
-struct CubicSpline{T,B} <: Kernel{T,4,B}; end
-struct CubicSplinePrime{T,B} <: Kernel{T,4,B}; end
-
-iscardinal(::Union{K,Type{K}}) where {K<:CubicSpline} = false
-iscardinal(::Union{K,Type{K}}) where {K<:CubicSplinePrime} = false
-
-isnormalized(::Union{K,Type{K}}) where {K<:CubicSpline} = true
-isnormalized(::Union{K,Type{K}}) where {K<:CubicSplinePrime} = false
-
-Base.show(io::IO, ::CubicSpline) = print(io, "CubicSpline()")
-Base.show(io::IO, ::CubicSplinePrime) = print(io, "CubicSplinePrime()")
-
-function (::CubicSpline{T,B})(x::T) where {T,B}
-    a = abs(x)
-    return (a ≥ 2 ? zero(T) :
-            a ≥ 1 ? cube(2 - a)*frac(T,1,6) :
-            (frac(T,1,2)*a - 1)*a*a + frac(T,2,3))
+#
+# Cubic B-splines
+# ---------------
+#
+@inline function (::BSpline{4,T})(x::T) where {T}
+    abs_x = abs(x)
+    if abs_x ≥ 2
+        return zero(T)
+    elseif abs_x ≥ 1
+        return cube(2 - abs_x)*frac(T,1,6)
+    else
+        return (frac(T,1,2)*abs_x - 1)*abs_x*abs_x + frac(T,2,3)
+    end
 end
 
-@inline function getweights(ker::CubicSpline{T,B},
-                            t::T) where {T,B}
-    # The weights are:
+@inline function getweights(ker::BSpline{4,T}, t::T) where {T}
+    #
+    # With `t = x - floor(x)`, the weights are given by:
+    #
     #     w1 = 1/6 - t/2 + t^2/2 - t^3/6
     #        = 1/6 + (t^2 - t)/2 - t^3/6
     #        = (1 - t)^3/6
@@ -498,54 +443,369 @@ end
     # for the 4 weights.  Precomputing the powers of t, t^2 and t^3, takes 2
     # operations, then 6 operations per cubic polynomial are needed.
     #
-    # Using factorizations, I manage to only use 15 operations.
+    # Using factorizations, I manage to only use 15 operations:
+    #
     h = frac(T,1,2)
     p = frac(T,2,3)
     q = frac(T,1,6)
-    r = 1 - t
-    r2 = r*r
+    u = 1 - t
+    u2 = u*u
     t2 = t*t
-    w1 = q*r2*r
+    w1 = q*u2*u
     w2 = p + (h*t - 1)*t2
-    w3 = p - h*r2*(t + 1)
+    w3 = p - (h*u2)*(t + 1)
     w4 = q*t2*t
-    return w1, w2, w3, w4
+    return (w1, w2, w3, w4)
 end
 
-(::CubicSplinePrime{T,B})(x::T) where {T,B} =
-    -2 < x < 2 ? (
-        x < -1 ? frac(T,1,2)*square(x + 2) :
-        x <  0 ? frac(T,-3,2)*x*(x + frac(T,4,3)) :
-        x <  1 ? frac(T,+3,2)*x*(x - frac(T,4,3)) :
-        frac(T,-1,2)*square(x - 2)
-    ) : zero(T)
+@inline function (::BSplinePrime{4,T})(x::T) where {T}
+    if (x ≤ -2)|(x ≥ 2)
+        return zero(T)
+    elseif x < -1
+        return frac(T,1,2)*square(x + 2)
+    elseif x <  0
+        return frac(T,-3,2)*x*(x + frac(T,4,3))
+    elseif x <  1
+        return frac(T,+3,2)*x*(x - frac(T,4,3))
+    else
+        return frac(T,-1,2)*square(x - 2)
+    end
+end
 
-@inline function getweights(ker::CubicSplinePrime{T,B},
-                            t::T) where {T,B}
-    return (frac(T,-1,2)*(t - 1)^2,
-            frac(T, 3,2)*(t - frac(T,4,3))*t,
-            frac(T, 1,2) + (1 - frac(T,3,2)*t)*t,
-            frac(T, 1,2)*t^2)
+@inline function getweights(ker::BSplinePrime{4,T}, t::T) where {T}
+    w1 = frac(T,-1,2)*(t - 1)^2
+    w2 = frac(T, 3,2)*(t - frac(T,4,3))*t
+    w3 = frac(T, 1,2) + (1 - frac(T,3,2)*t)*t
+    w4 = frac(T, 1,2)*t^2
+    return (w1, w2, w3, w4)
+end
+
+#------------------------------------------------------------------------------
+# GENERIC CUBIC SPLINE
+
+"""
+    CubicSpline{T}(a, b) -> ker
+
+yields an instance of a generic cubic spline for floating-point type `T` and
+parameters `a = ker'(1)` and `b = ker(1)` the slope and the value of the
+function `ker(x)` at `x = 1`.
+
+A cubic spline kernel is at least C¹ continuous, the expression `ker'` yields a
+kernel instance implementing the 1st derivative of the generic cubic spline
+`ker` (see [`CubicSplinePrime`](@ref) to directly build a derivative).
+
+Depending on the values of the parameters `a` and `b`, more specific cubic
+spline kernels can be emulated:
+
+* `CubicSpline{T}(-1/2,1/6)` yields a cubic B-spline as built by
+  `BSpline{4,T}()`.
+
+* `CubicSpline{T}(a,0)` yields a cardinal cubic spline as built by
+  `CardinalCubicSpline{T}(a)`.
+
+* `CubicSpline{T}(-1/2,0)` yields a Catmull-Rom kernel as built by
+  `CatmullRomSpline{T}()`.
+
+* `CubicSpline{T}(-b/2-c,b/6)` yields Mitchell & Netravali cubic spline as
+  built by `MitchellNetravaliSpline{T}(b,c)`.
+
+Instances of `CubicSpline` are very well optimized and, in practice, they may
+be as fast or even faster than these more specialized counterparts.
+
+""" CubicSpline
+
+"""
+    CubicSplinePrime{T}(a, b)
+
+yields a kernel instance that is the 1st derivative of the generic cubic spline
+of parameters `a` and `b` (see [`CubicSpline`](@ref)) for floating-point
+type `T` (`Float64` by default).
+
+""" CubicSplinePrime
+
+struct CubicSpline{T} <: Kernel{T,4}
+    a::T
+    b::T
+    c0::T
+    c1::T
+    c2::T
+    c3::T
+    c4::T
+    c5::T
+    c6::T
+    function CubicSpline{T}(_a::Real, _b::Real) where {T}
+        # NOTE: Paramaters must be signed in the expressions of the kernel
+        # constants.  Since there is no loss of precision in computing these
+        # constants with floating-point arithmetic even though parameters are
+        # integers, we convert the parameters to type T.
+        a, b = T(_a), T(_b)
+        new{T}(a, b,
+               1 - 2b,     # c0
+               9b - a - 3, # c1
+               2 + a - 6b, # c2
+               -a - b,     # c3
+               a + 2b,     # c4
+               3b - 1,     # c5
+               a + 3b)     # c6
+    end
+end
+
+@inline function (ker::CubicSpline{T})(x::T) where {T}
+    abs_x = abs(x)
+    if abs_x ≤ 1
+        return (ker.c2*abs_x + ker.c1)*abs_x^2 + ker.c0
+    elseif abs_x < 2
+        return (ker.c3 + ker.c4*abs_x)*(abs_x - 2)^2
+    else
+        return zero(T)
+    end
+end
+
+@inline function getweights(ker::CubicSpline{T}, t::T) where {T}
+    #
+    # With `t = x - floor(x)`, the weights are given by:
+    #
+    #     w1 = (1 - t)^2 (b + (a + 2b) t)
+    #        = u^2 (b + c4*t)
+    #     w2 = (1 - 2b) + t^2 ((-3 - a + 9b) + (2 + a - 6b) t)
+    #        = c0 + t^2 (c1 + c2*t)
+    #     w3 = (1 - 2b) + (1 - t)^2 ((3b - 1) - (2 + a - 6b) t)
+    #        = c0 + u^2 (c5 - c2*t)
+    #     w4 = t^2 ((a + 3b) - (a + 2b) t)
+    #        = t^2 (c6 - c4 t)
+    #
+    # where:
+    #
+    #     u = 1 - t
+    #     c5 = 3b - 1
+    #     c6 = a + 3b
+    #
+    # can be done in 15 operations:
+    #
+    u = 1 - t
+    c4t = ker.c4*t
+    c2t = ker.c2*t
+    u2 = u*u
+    t2 = t*t
+    w1 = (ker.b  + c4t)*u2
+    w2 = (ker.c1 + c2t)*t2 + ker.c0
+    w3 = (ker.c5 - c2t)*u2 + ker.c0
+    w4 = (ker.c6 - c4t)*t2
+    return (w1, w2, w3, w4)
+end
+
+struct CubicSplinePrime{T} <: Kernel{T,4}
+    a::T
+    b::T
+    c1::T
+    c2::T
+    c3::T
+    c4::T
+    c5::T
+    function CubicSplinePrime{T}(_a::Real, _b::Real) where {T}
+        a, b = T(_a), T(_b)
+        new{T}(a, b,
+               -6 - 2a + 18b, # c1
+               6 + 3a - 18b,  # c2
+               -4a - 6b,      # c3
+               3a + 6b,       # c4
+               2a + 6b)       # c5
+    end
+end
+
+@inline function (ker::CubicSplinePrime{T})(x::T) where {T}
+    sign_x, abs_x = signabs(x)
+    if abs_x ≤ 1
+        return (ker.c1 + ker.c2*abs_x)*x
+    elseif abs_x < 2
+        return sign_x*(abs_x - 2)*(ker.c3 + ker.c4*abs_x)
+    else
+        return zero(T)
+    end
+end
+
+@inline function getweights(ker::CubicSplinePrime{T}, t::T) where {T}
+    #
+    # With `t = x - floor(x)`, the weights are given by:
+    #
+    #     w1 = (a - (6b + 3a) t) (1 - t)
+    #        = (a - c4 t) (1 - t)
+    #     w2 = ((-6 - 2a + 18b) + (6 + 3a - 18b) t) t
+    #        = (c1 + c2 t) t
+    #     w3 = ((6 + 3a - 18b) t - a) (1 - t)
+    #        = (c2 t - a) (1 - t)
+    #     w4 = ((2a + 6b) - (3a + 6b) t) t
+    #        = (c5 - c4 t) t
+    #
+    # can be computed in 11 operations in total:
+    #
+    u = 1 - t
+    c4t = ker.c4*t
+    c2t = ker.c2*t
+    w1 = (ker.a - c4t)*u
+    w2 = (ker.c1 + c2t)*t
+    w3 = (c2t - ker.a)*u
+    w4 = (ker.c5 - c4t)*t
+    return (w1, w2, w3, w4)
+end
+
+# Outer constructors, traits and standard methods.
+for K in (:CubicSpline, :CubicSplinePrime)
+    @eval begin
+        $K(a::Real, b::Real) = $K(promote(a, b)...)
+        $K(a::Integer, b::Integer) = $K{Float64}(a, b)
+        $K(a::T, b::T) where {T<:Floats} = $K{T}(a, b)
+        values(ker::$K) = (ker.a, ker.b)
+        iscardinal(::Union{K,Type{K}}) where {K<:$K} = false
+        isnormalized(::Union{K,Type{K}}) where {K<:$K} =
+            $(K === :CubicSpline)
+    end
+end
+
+#------------------------------------------------------------------------------
+# KEYS' CARDINAL CUBIC SPLINE
+
+"""
+    CardinalCubicSpline{T}(a)
+
+yields an instance of the Keys family of cardinal cubic splines for
+floating-point type `T` and parameter `a = ker'(1)` the slope of the function
+`ker(x)` at `x = 1`.
+
+These kernels are C¹ continuous piecewise normalized cardinal cubic spline
+which depend on one parameter `a` and defined by:
+
+    ker(x) = 1 + ((2 + a)*|x| - (3 + a))*x^2    if |x| ≤ 1
+             a*(|x| - 1)*(|x| - 2)^2            if 1 ≤ |x| ≤ 2
+             0                                  if |x| ≥ 2
+
+The expression `ker'` yields a kernel instance which is the 1st derivative of
+the Keys kernel `ker` (also see the constructor
+[`CardinalCubicSplinePrime`](@ref)).
+
+Reference:
+
+* Keys, Robert, G., "Cubic Convolution Interpolation for Digital Image
+  Processing", IEEE Trans. Acoustics, Speech, and Signal Processing,
+  Vol. ASSP-29, No. 6, December 1981, pp. 1153-1160.
+
+""" CardinalCubicSpline
+
+struct CardinalCubicSpline{T} <: Kernel{T,4}
+    a::T   # a
+    ap2::T # a + 2
+    ap3::T # a + 3
+    am2::T # a - 2
+    function CardinalCubicSpline{T}(_a::Real) where {T}
+        a = T(_a)
+        new{T}(a, a + 2, a + 3, a - 2)
+    end
+end
+
+@inline function (ker::CardinalCubicSpline{T})(x::T) where {T}
+    abs_x = abs(x)
+    if abs_x ≥ 2
+        return zero(T)
+    elseif abs_x ≤ 1
+        return 1 + (ker.ap2*abs_x - ker.ap3)*abs_x^2
+    else
+        return ker.a*(abs_x - 1)*(abs_x - 2)^2
+    end
+end
+
+@inline function getweights(ker::CardinalCubicSpline{T}, t::T) where {T}
+    #
+    # Given `t = x - floor(x)`, compute:
+    #
+    #     w1 = a*(1 - t)^2*t
+    #     w2 = (1 + t - (2 + a) t^2)*(1 - t)
+    #     w3 = -t (a - (2a + 3)*t + (a + 2)*t^2)
+    #     w4 = a*(1 - t)*t^2
+    #
+    # Noting that, with `u = 1 - t` and `v = a*t*u`(1 - t)`, the following
+    # hold:
+    #
+    #     w1 = v*u
+    #     w4 = v*t
+    #     w1 + w4 = v
+    #     w2 + w3 = 1 - v
+    #     w2 = 1 - (1 + (2 + a)*u)*t^2
+    #
+    # can be done in in 11 operations:
+    #
+    u = 1 - t
+    v = ker.a*t*u
+    w = (1 + ker.ap2*u)*t*t # ap2 = a + 2
+    w1 = v*u
+    w2 = 1 - w
+    w3 = w - v
+    w4 = v*t
+    return (w1, w2, w3, w4)
+end
+
+"""
+    CardinalCubicSplinePrime{T}(a)
+
+yields a kernel instance that is the 1st derivative of the Keys cardinal cubic
+spline (see [`CardinalCubicSpline`](@ref)) for floating-point type `T` and
+parameter `a`.  This derivative is given by:
+
+    ker′(x) = (3(a + 2)*|x| - 2(a + 3))*x           if |x| ≤ 1
+              (3a)*(|x| - 2)*(|x| - 4/3)*sign(x)    if 1 ≤ |x| ≤ 2
+              0                                     if |x| ≥ 2
+
+""" CardinalCubicSplinePrime
+
+struct CardinalCubicSplinePrime{T} <: Kernel{T,4}
+    a ::T
+    c1::T # 3(a + 2)
+    c2::T # 2(a + 3)
+    c3::T # 3a
+    CardinalCubicSplinePrime{T}(a::Real) where {T} =
+        new{T}(a, 3(a + 2), 2(a + 3), 3a)
+end
+
+@inline function (ker::CardinalCubicSplinePrime{T})(x::T) where {T}
+    sign_x, abs_x = signabs(x)
+    if abs_x ≥ 2
+        return zero(T)
+    elseif abs_x ≤ 1
+        return (ker.c1*abs_x - ker.c2)*x
+    else
+        return (sign_x*ker.c3)*(abs_x - 2)*(abs_x - frac(T,4,3))
+    end
+end
+
+# FIXME: optimize getweights for CardinalCubicSplinePrime
+
+# Traits and outer constructors.
+for K in (:CardinalCubicSpline, :CardinalCubicSplinePrime)
+    @eval begin
+        $K(a::Real) = $K{Float64}(a)
+        $K(a::T) where {T<:Floats} = $K{T}(a)
+        values(ker::$K) = (ker.a,)
+        iscardinal(::Union{K,Type{K}}) where {K<:$K} =
+            $(K === :CardinalCubicSpline)
+        isnormalized(::Union{K,Type{K}}) where {K<:$K} =
+            $(K === :CardinalCubicSpline)
+    end
 end
 
 #------------------------------------------------------------------------------
 # CATMULL-ROM INTERPOLATION KERNEL
 
 """
-    CatmullRomSpline([T=Float64,] B=Flat)
+    CatmullRomSpline{T}()
 
 yields an instance of the Catmull-Rom interpolation kernel for floating-point
-type `T` and boundary conditions `B`.
+type `T` which is assumed to be `Float64` if omitted.
 
-Catmull-Rom interpolation kernel is a piecewise cardinal cubic spline defined
+Catmull-Rom interpolation kernel is a cardinal piecewise cubic spline defined
 by:
 
     ker(x) = ((3/2)*|x| - (5/2))*x^2 + 1             if |x| ≤ 1
              (((5/2) - (1/2)*|x|)*|x| - 4)*|x| + 2   if 1 ≤ |x| ≤ 2
              0                                       if |x| ≥ 2
-
-Catmull-Rom kernel is a special case of Mitchell & Netravali kernel (see
-[`MitchellNetravaliSplinePrime`](@ref)).
 
 The expression `ker'` yields a kernel instance which is the 1st derivative of
 the Catmull-Rom interpolation kernel `ker` (also see the constructor
@@ -554,11 +814,11 @@ the Catmull-Rom interpolation kernel `ker` (also see the constructor
 """ CatmullRomSpline
 
 """
-    CatmullRomSplinePrime([T=Float64,] B=Flat)
+    CatmullRomSplinePrime{T}()
 
 yields a kernel instance that is the 1st derivative of the Catmull-Rom
 interpolation kernel (see [`CatmullRomSpline`](@ref)) for floating-point type
-`T` and boundary conditions `B`.
+`T` which is assumed to be `Float64` if omitted.
 
 The 1st derivative of the Catmull-Rom interpolation kernel is given by:
 
@@ -568,51 +828,60 @@ The 1st derivative of the Catmull-Rom interpolation kernel is given by:
 
 """ CatmullRomSplinePrime
 
-struct CatmullRomSpline{T,B} <: Kernel{T,4,B}; end
-struct CatmullRomSplinePrime{T,B} <: Kernel{T,4,B}; end
+struct CatmullRomSpline{T} <: Kernel{T,4} end
 
-iscardinal(::Union{K,Type{K}}) where {K<:CatmullRomSpline} = true
-iscardinal(::Union{K,Type{K}}) where {K<:CatmullRomSplinePrime} = false
+struct CatmullRomSplinePrime{T} <: Kernel{T,4} end
 
-isnormalized(::Union{K,Type{K}}) where {K<:CatmullRomSpline} = true
-isnormalized(::Union{K,Type{K}}) where {K<:CatmullRomSplinePrime} = false
-
-Base.summary(::CatmullRomSpline) = "CatmullRomSpline()"
-Base.summary(::CatmullRomSplinePrime) = "CatmullRomSplinePrime()"
-
-@inline function (::CatmullRomSpline{T,B})(x::T) where {T<:AbstractFloat,B}
-    a = abs(x)
-    return (a ≥ 2 ? zero(T) :
-            a ≤ 1 ? (frac(T,3,2)*a - frac(T,5,2))*a*a + T(1) :
-            ((frac(T,5,2) - frac(T,1,2)*a)*a - T(4))*a + T(2))
+@inline function (::CatmullRomSpline{T})(x::T) where {T}
+    abs_x = abs(x)
+    if abs_x ≥ 2
+        return zero(T)
+    elseif abs_x ≤ 1
+        # (((3/2)*x - (5/2))*x^2 + 1)
+        return ((T(3)/2)*abs_x - T(5)/2)*abs_x*abs_x + 1
+    else
+        # (((5/2) - (1/2)*x)*x - 4)*x + 2
+        # = (2 - x)^2 (1 - x)/2
+        return (2 - abs_x)^2*(1 - abs_x)/2
+    end
 end
 
-@inline function (::CatmullRomSplinePrime{T,B})(x::T) where {T<:AbstractFloat,B}
-    return (x < 0 ?
-            (x ≤ -2 ? zero(T) :
-             x ≥ -1 ? (frac(T,-9,2)*x - T(5))*x :
-             (T(5) + frac(T,3,2)*x)*x + T(4)) :
-            (x ≥ 2 ? zero(T) :
-             x ≤ 1 ? (frac(T,9,2)*x - T(5))*x :
-             (T(5) - frac(T,3,2)*x)*x - T(4)))
+@inline function (::CatmullRomSplinePrime{T})(x::T) where {T}
+    if x < 0
+        if x ≤ -2
+            return zero(T)
+        elseif x ≥ -1
+            return (frac(T,-9,2)*x - 5)*x
+        else
+            return (5 + frac(T,3,2)*x)*x + 4
+        end
+    else
+        if x ≥ 2
+            return zero(T)
+        elseif x ≤ 1
+            return (frac(T,9,2)*x - 5)*x
+        else
+            return (5 - frac(T,3,2)*x)*x - 4
+        end
+    end
 end
 
-@inline function getweights(::CatmullRomSpline{T,B},
-                            t::T) where {T<:AbstractFloat,B}
-    # 10 operations
-    s = 1 - t
-    q = frac(T,-1,2)*t*s
-    w1 = q*s
-    w4 = q*t
-    r = w4 - w1
-    w2 = s - w1 + r
-    w3 = t - w4 - r
+@inline function getweights(::CatmullRomSpline{T}, t::T) where {T}
+    # 10 operations:
+    u = 1 - t
+    v = frac(T,-1,2)*t*u
+    w1 = v*u
+    w4 = v*t
+    w = w4 - w1
+    w2 = u - w1 + w
+    w3 = t - w4 - w
     return (w1, w2, w3, w4)
 end
 
-@inline function getweights(::CatmullRomSplinePrime{T,B},
-                            t::T) where {T<:AbstractFloat,B}
-    # Weights (18 operations):
+@inline function getweights(::CatmullRomSplinePrime{T}, t::T) where {T}
+    #
+    # Weights are given by (18 operations):
+    #
     #   w1 = -(3/2)*t^2 + 2*t - (1/2);
     #   w2 =  (9/2)*t^2 - 5*t;
     #   w3 = -(9/2)*t^2 + 4*t + (1/2);
@@ -623,7 +892,8 @@ end
     #   w2 = 3*w4 - 2*t;
     #   w3 = t - 3*w4 + (1/2);
     #
-    # 11 operations:
+    # can be computed in 11 operations:
+    #
     w4 = frac(T,3,2)*t*t - t;
     w1 = t - w4 - frac(T,1,2);
     w2 = T(3)*w4 - 2*t;
@@ -631,193 +901,46 @@ end
     return (w1, w2, w3, w4)
 end
 
-#------------------------------------------------------------------------------
-# CARDINAL CUBIC SPLINES
-
-"""
-    CardinalCubicSpline([T=Float64,] c, B=Flat)
-
-yields an instance of a cardinal cubic spline interpolation kernel for
-floating-point type `T`, tension parameter `c` and boundary conditions `B`.
-
-The slope at `x = ±1` is `±(c - 1)/2`.  Usually `c ≤ 1`, choosing `c = 0`
-yields a Catmull-Rom spline (see [`CatmullRomSpline`](@ref)), `c = 1` yields
-all zero tangents, `c = -1` yields a truncated approximation of a cardinal
-sine, `c = -1/2` yields an interpolating cubic spline with continuous second
-derivatives (inside its support).
-
-The expression `ker'` yields a kernel instance which is the 1st derivative of
-the cardinal cubic spline `ker` (also see the constructor
-[`CardinalCubicSplinePrime`](@ref)).
-
-""" CardinalCubicSpline
-
-"""
-    CardinalCubicSplinePrime([T=Float64,] B=Flat)
-
-yields a kernel instance that is the 1st derivative of the cardinal cubic
-spline interpolation kernel (see [`CardinalCubicSpline`](@ref)) for
-floating-point type `T`, tension parameter `c` and boundary conditions `B`.
-
-""" CardinalCubicSplinePrime
-
-struct CardinalCubicSpline{T,B} <: Kernel{T,4,B}
-    c::T # cardinal cubic spline parameter
-    p::T # slope at x=1
-    q::T
-    r::T
-
-    function CardinalCubicSpline{T,B}(c_::Real) where {T,B}
-        c = T(c_)
-        q = (c + 1)/2
-        new{T,B}(c, q - 1, q, q + 1)
+# Traits and outer constructors.
+for K in (:CatmullRomSpline, :CatmullRomSplinePrime)
+    @eval begin
+        $K() = $K{Float64}()
+        iscardinal(::Union{K,Type{K}}) where {K<:$K} =
+            $(K === :CatmullRomSpline)
+        isnormalized(::Union{K,Type{K}}) where {K<:$K} =
+            $(K === :CatmullRomSpline)
     end
-end
-
-function CardinalCubicSpline(::Type{T}, c::Real,
-                             ::Type{B} = Flat) where {T<:AbstractFloat,
-                                                      B<:Boundaries}
-    CardinalCubicSpline{T,B}(c)
-end
-
-CardinalCubicSpline(c::Real, ::Type{B} = Flat) where {B<:Boundaries} =
-    CardinalCubicSpline(Float64, c, B)
-
-iscardinal(::Union{K,Type{K}}) where {K<:CardinalCubicSpline} = true
-
-isnormalized(::Union{K,Type{K}}) where {K<:CardinalCubicSpline} = true
-
-Base.show(io::IO, ker::CardinalCubicSpline) =
-    print(io, "CardinalCubicSpline(", @sprintf("%.1f", ker.c), ")")
-
-function convert(::Type{CardinalCubicSpline{T,B}},
-                 ker::CardinalCubicSpline) where {T<:AbstractFloat,
-                                                  B<:Boundaries}
-    CardinalCubicSpline(T, ker.c, B)
-end
-
-function (ker::CardinalCubicSpline{T,B})(x::T) where {T<:AbstractFloat,B}
-    a = abs(x)
-    return (a ≥ 2 ? zero(T) :
-            a ≥ 1 ? ker.p*(a - 1)*square(2 - a) :
-            ((ker.r*a - 1)*a - 1)*(a - 1))
-end
-
-@inline function getweights(ker::CardinalCubicSpline{T,B},
-                            t::T) where {T<:AbstractFloat,B}
-    p, q = ker.p, ker.q
-    # Computation of:
-    #     w1 = p t u²
-    #     w2 = u + t u² - q t² u
-    #     w3 = t + t² u - q t u²
-    #     w4 = p t² u
-    # with u = 1 - t in 13 operations.
-    u = 1 - t
-    tu = t*u
-    ptu = p*tu
-    return (ptu*u,
-            (u - q*t)*tu + u,
-            (t - q*u)*tu + t,
-            ptu*t)
-end
-
-# First derivative of the cardinal cubic spline.
-
-struct CardinalCubicSplinePrime{T,B} <: Kernel{T,4,B}
-    c::T
-    p::T
-    q::T
-    r::T
-    s::T
-
-    function CardinalCubicSplinePrime{T,B}(c_::Real) where {T,B}
-        c = convert(T, c_)
-        t = 3c + 9
-        return new{T,B}(c,
-                        (3c - 3)/2,
-                        t/2,
-                        (2c + 10)/t,
-                        (c - 1)/t)
-    end
-end
-
-function CardinalCubicSplinePrime(::Type{T}, c::Real,
-                              ::Type{B} = Flat) where {T<:AbstractFloat,
-                                                       B<:Boundaries}
-    CardinalCubicSplinePrime{T,B}(c)
-end
-
-CardinalCubicSplinePrime(c::Real, ::Type{B} = Flat) where {B<:Boundaries} =
-    CardinalCubicSplinePrime(Float64, c, B)
-
-(ker::CardinalCubicSplinePrime{T,B})(x::T) where {T<:AbstractFloat,B} =
-    x < 0 ? (
-        x ≤ -2 ? zero(T) :
-        x < -1 ? -(x + 2)*(x + frac(T,4,3))*ker.p :
-        -(x + ker.r)*x*ker.q
-    ) : (
-        x ≥ 2 ? zero(T) :
-        x > 1 ? (x - 2)*(x - frac(T,4,3))*ker.p :
-        (x - ker.r)*x*ker.q
-    )
-
-iscardinal(ker::CardinalCubicSplinePrime) = (ker.c == 1)
-
-isnormalized(::CardinalCubicSplinePrime) = false
-
-Base.show(io::IO, ker::CardinalCubicSplinePrime) =
-    print(io, "CardinalCubicSplinePrime(", @sprintf("%.1f", ker.c), ")")
-
-function convert(::Type{CardinalCubicSplinePrime{T,B}},
-                 ker::CardinalCubicSplinePrime) where {T<:AbstractFloat,
-                                                   B<:Boundaries}
-    CardinalCubicSplinePrime(T, ker.c, B)
-end
-
-@inline function getweights(ker::CardinalCubicSplinePrime{T,B},
-                            t::T) where {T<:AbstractFloat,B}
-
-    # Computation of:
-    #     w1 = p*(t - 1)*(t - 1/3)
-    #     w2 = q*(t - r)*t
-    #     w3 = q*(t - 1)*(s - t)
-    #     w4 = p*t*(2/3 - t)
-    # in 13 operations.
-    u = t - 1
-    return (ker.p*u*(t - frac(T,1,3)),
-            ker.q*(t - ker.r)*t,
-            ker.q*u*(ker.s - t),
-            ker.p*t*(frac(T,2,3) - t))
 end
 
 #------------------------------------------------------------------------------
 # MITCHELL & NETRAVALI KERNELS
 
 """
-    MitchellNetravaliSpline([T=Float64,] [b=1/3, c=1/3,] B=Flat)
+    MitchellNetravaliSpline{T}(b=1/3, c=1/3)
 
 yields an instance of the Mitchell & Netravali family of kernels for
-floating-point type `T`, parameters `b` and `c` and boundary conditions `B`.
+floating-point type `T` and parameters `(b,c)`.
 
 These kernels are cubic splines which depends on 2 parameters, `b` and `c`.
-Whatever the values of `(b,c)`, all these kernels are normalized, even
-functions of class C¹ (these kernels and their first derivatives are
+Whatever the values of `(b,c)`, Mitchell & Netravali kernels are normalized,
+even and C¹ continuous functions (these kernels and their first derivatives are
 continuous).
 
-Taking `b = 0` yields Keys's family of kernels and is a sufficient and
-necessary condition to have Mitchell & Netravali kernels be cardinal functions.
+Taking `b = 0` yields the family of cardinal cubic splines (see
+[`CardinalCubicSpline`](@ref)) and is a sufficient and necessary condition to
+have Mitchell & Netravali kernels be cardinal functions.
 
 Using the constraint: `b + 2c = 1` yields a cubic filter with, at least,
 quadratic order approximation.
 
 Some specific values of `(b,c)` yield other well known kernels:
 
-    (b,c) = (1,0)       ==> cubic B-spline
-    (b,c) = (0,-a)      ==> Keys's cardinal cubics
-    (b,c) = (0,(1-a)/2) ==> cardinal cubic spline
-    (b,c) = (0,1/2)     ==> Catmull-Rom cubics
-    (b,c) = (b,0)       ==> Duff's tensioned B-spline
-    (b,c) = (1/3,1/3)   ==> recommended by Mitchell-Netravali
+    (b,c) = (1,0)      --> cubic B-spline
+    (b,c) = (0,-a)     --> Keys's cardinal cubic spline CardinalCubicSpline(a)
+    (b,c) = (0,1/2)    --> Catmull-Rom kernel CatmullRomSpline()
+    (b,c) = (b,0)      --> Duff's tensioned B-spline
+    (b,c) = (6β,-α-3β) --> generic cubic spline CubicSpline(α,β)
+    (b,c) = (1/3,1/3)  --> recommended by Mitchell-Netravali
 
 The expression `ker'` yields a kernel instance which is the 1st derivative of
 the Mitchell & Netravali kernel `ker` (also see the constructor
@@ -840,362 +963,39 @@ parameters `b` and `c` and boundary conditions `B`.
 
 """ MitchellNetravaliSplinePrime
 
-struct MitchellNetravaliSpline{T,B} <: Kernel{T,4,B}
-    b ::T
-    c ::T
-    p0::T
-    p2::T
-    p3::T
-    q0::T
-    q1::T
-    q2::T
-    q3::T
-    function MitchellNetravaliSpline{T,B}(_b::Real,
-                                          _c::Real) where {T,B}
-        b, c = T(_b), T(_c)
-        new{T,B}(
-            b, c,
-            (   6 -  2*b       )/6,
-            ( -18 + 12*b +  6*c)/6,
-            (  12 -  9*b -  6*c)/6,
-            (        8*b + 24*c)/6,
-            (     - 12*b - 48*c)/6,
-            (        6*b + 30*c)/6,
-            (     -    b -  6*c)/6)
+for K in (:MitchellNetravaliSpline, :MitchellNetravaliSplinePrime)
+    @eval begin
+        abstract type $K{T} <: Kernel{T,4} end
+        $K() = $K{Float64}()
+        $K{T}() where {T<:Floats} = $K{T}(one(T)/3, one(T)/3)
+        $K(b::Real, c::Real) = $K{floating_point_type(b, c)}(b, c)
+        function $K{T}(_b::Real, _c::Real) where {T<:Floats}
+            b, c = T(_b), T(_c)
+            return CubicSpline{T}(-(b/2 + c), b/6)
+        end
     end
 end
 
-struct MitchellNetravaliSplinePrime{T,B} <: Kernel{T,4,B}
-    b ::T
-    c ::T
-    dp1::T
-    dp2::T
-    dq0::T
-    dq1::T
-    dq2::T
-    function MitchellNetravaliSplinePrime{T,B}(_b::Real,
-                                               _c::Real) where {T,B}
-        b, c = T(_b), T(_c)
-        new{T,B}(
-            b, c,
-            ( -18 + 12*b +  6*c)/3,
-            (  12 -  9*b -  6*c)/2,
-            (     - 12*b - 48*c)/6,
-            (        6*b + 30*c)/3,
-            (     -    b -  6*c)/2)
-    end
-end
+floating_point_type(x::Real) = floating_point_type(typeof(x))
+floating_point_type(args::Real...) =
+    floating_point_type(map(typeof, args)...)
 
-function MitchellNetravaliSpline(::Type{T}, b::Real, c::Real,
-                                 ::Type{B} = Flat) where {T<:AbstractFloat,
-                                                          B<:Boundaries}
-    MitchellNetravaliSpline{T,B}(b, c)
-end
-
-function MitchellNetravaliSpline(b::Real, c::Real,
-                                 ::Type{B} = Flat) where {B<:Boundaries}
-    MitchellNetravaliSpline(Float64, b, c, B)
-end
-
-function MitchellNetravaliSplinePrime(::Type{T}, b::Real, c::Real,
-                                      ::Type{B} = Flat) where {T<:AbstractFloat,
-                                                               B<:Boundaries}
-    MitchellNetravaliSplinePrime{T,B}(b, c)
-end
-
-function MitchellNetravaliSplinePrime(b::Real, c::Real,
-                                      ::Type{B} = Flat) where {B<:Boundaries}
-    MitchellNetravaliSplinePrime(Float64, b, c, B)
-end
-
-# Create Mitchell-Netravali kernel with default "good" parameters.
-function MitchellNetravaliSpline(::Type{T} = Float64,
-                                 ::Type{B} = Flat) where {T<:AbstractFloat,
-                                                          B<:Boundaries}
-    MitchellNetravaliSpline{T,B}(frac(T,1,3), frac(T,1,3))
-end
-
-function MitchellNetravaliSplinePrime(::Type{T} = Float64,
-                                      ::Type{B} = Flat) where {T<:AbstractFloat,
-                                                               B<:Boundaries}
-    MitchellNetravaliSplinePrime{T,B}(frac(T,1,3), frac(T,1,3))
-end
-
-iscardinal(ker::MitchellNetravaliSpline{T,B}) where {T,B} = (ker.b == 0)
-iscardinal(ker::MitchellNetravaliSplinePrime{T,B}) where {T,B} = false
-
-isnormalized(::Union{K,Type{K}}) where {K<:MitchellNetravaliSpline} = true
-isnormalized(::Union{K,Type{K}}) where {K<:MitchellNetravaliSplinePrime} = false
-
-Base.summary(ker::MitchellNetravaliSpline{T,B}) where {T,B} =
-    @sprintf("MitchellNetravaliSpline(%.1f,%.1f)", ker.b, ker.c)
-
-Base.summary(ker::MitchellNetravaliSplinePrime{T,B}) where {T,B} =
-    @sprintf("MitchellNetravaliSplinePrime(%.1f,%.1f)", ker.b, ker.c)
-
-function convert(::Type{MitchellNetravaliSpline{T,B}},
-                 ker::MitchellNetravaliSpline) where {T<:AbstractFloat,
-                                                      B<:Boundaries}
-    MitchellNetravaliSpline(T, ker.b, ker.c, B)
-end
-
-function convert(::Type{MitchellNetravaliSplinePrime{T,B}},
-                 ker::MitchellNetravaliSplinePrime) where {T<:AbstractFloat,
-                                                           B<:Boundaries}
-    MitchellNetravaliSplinePrime(T, ker.b, ker.c, B)
-end
-
-@inline _p(ker::MitchellNetravaliSpline{T,B}, x::T) where {T,B} =
-    (ker.p3*x + ker.p2)*x*x + ker.p0
-
-@inline _q(ker::MitchellNetravaliSpline{T,B}, x::T) where {T,B} =
-    ((ker.q3*x + ker.q2)*x + ker.q1)*x + ker.q0
-
-function (ker::MitchellNetravaliSpline{T,B})(x::T) where {T<:AbstractFloat,B}
-    a = abs(x)
-    return (a ≥ 2 ? zero(T) : a ≤ 1 ? _p(ker, a) : _q(ker, a))
-end
-
-@inline function getweights(ker::MitchellNetravaliSpline{T,B},
-                            t::T) where {T<:AbstractFloat,B}
-    # 25 operations
-    return (_q(ker, t + 1),
-            _p(ker, t),
-            _p(ker, 1 - t),
-            _q(ker, 2 - t))
-end
-
-@inline _p(ker::MitchellNetravaliSplinePrime{T,B}, x::T) where {T,B} =
-    (ker.dp2*x + ker.dp1)*x
-
-@inline _q(ker::MitchellNetravaliSplinePrime{T,B}, x::T) where {T,B} =
-    (ker.dq2*x + ker.dq1)*x + ker.dq0
-
-function (ker::MitchellNetravaliSplinePrime{T,B})(x::T) where {T<:AbstractFloat,B}
-    s, a = signabs(x)
-    return (a ≥ 2 ? zero(T) : a ≤ 1 ? s*_p(ker, a) : s*_q(ker, a))
-end
-
-@inline function getweights(ker::MitchellNetravaliSplinePrime{T,B},
-                            t::T) where {T<:AbstractFloat,B}
-    # 19 operations
-    return (_q(ker, t + 1),
-            _p(ker, t),
-            -_p(ker, 1 - t),
-            -_q(ker, 2 - t))
-end
-
-#------------------------------------------------------------------------------
-# KEYS' CARDINAL KERNELS
-
-"""
-    KeysSpline([T=Float64,] a, B=Flat)
-
-yields an instance of the Keys family of cardinal kernels for floating-point
-type `T`, parameter `a` and boundary conditions `B`.
-
-These kernels are piecewise normalized cardinal cubic spline which depend on
-one parameter `a` which is the slope of the spline at abscissa 1.  Keys
-cardinal kernels are defined by:
-
-```
-ker(x) = p(abs(x))   if abs(x) ≤ 1
-         q(abs(x))   if 1 ≤ abs(x) ≤ 2
-         0           if abs(x) ≥ 2
-```
-
-with:
-
-```
-p(x) = 1 - (a + 3)*x^2 + (a + 2)*x^3
-q(x) = -4a + 8a*x - 5a*x^2 + a*x^3
-```
-
-The expression `ker'` yields a kernel instance which is the 1st derivative of
-the Keys kernel `ker` (also see the constructor [`KeysSplinePrime`](@ref)).
-
-Reference:
-
-* Keys, Robert, G., "Cubic Convolution Interpolation for Digital Image
-  Processing", IEEE Trans. Acoustics, Speech, and Signal Processing,
-  Vol. ASSP-29, No. 6, December 1981, pp. 1153-1160.
-
-""" KeysSpline
-
-"""
-    KeysSplinePrime([T=Float64,] a, B=Flat)
-
-yields a kernel instance that is the 1st derivative of the Keys kernel (see
-[`KeysSpline`](@ref)) for floating-point type `T`, parameter `a` and boundary
-conditions `B`.  This derivative is given by:
-
-```
-ker′(x) = p′(abs(x))*sign(x)   if abs(x) ≤ 1
-          q′(abs(x))*sign(x)   if 1 ≤ abs(x) ≤ 2
-          0                    if abs(x) ≥ 2
-```
-
-with:
-
-```
-p(x) = -2*(a + 3)*x + 3*(a + 2)*x^2
-q(x) = 8a - 10a*x + 3a*x^2
-```
-
-""" KeysSplinePrime
-
-struct KeysSpline{T,B} <: Kernel{T,4,B}
-    a ::T
-    p0::T
-    p2::T
-    p3::T
-    q0::T
-    q1::T
-    q2::T
-    q3::T
-    function KeysSpline{T,B}(a::Real) where {T,B}
-        new{T,B}(a,
-                 1, -a - 3, a + 2,
-                 -4a, 8a, -5a, a)
-    end
-end
-
-struct KeysSplinePrime{T,B} <: Kernel{T,4,B}
-    a::T
-    b::T # 2*(a + 3)
-    c::T # a + 2
-    p1::T
-    p2::T
-    q0::T
-    q1::T
-    q2::T
-    function KeysSplinePrime{T,B}(a::Real) where {T,B}
-        new{T,B}(a, 2a + 6, a + 2,
-                 -2a - 6, 3a + 6,
-                 8a, -10a, 3a)
-    end
-end
-
-function KeysSpline(::Type{T}, a::Real,
-                    ::Type{B} = Flat) where {T<:AbstractFloat, B<:Boundaries}
-    KeysSpline{T,B}(a)
-end
-
-KeysSpline(a::Real, ::Type{B} = Flat) where {B<:Boundaries} =
-    KeysSpline(Float64, a, B)
-
-function KeysSplinePrime(::Type{T}, a::Real,
-                    ::Type{B} = Flat) where {T<:AbstractFloat, B<:Boundaries}
-    KeysSplinePrime{T,B}(a)
-end
-
-KeysSplinePrime(a::Real, ::Type{B} = Flat) where {B<:Boundaries} =
-    KeysSplinePrime(Float64, a, B)
-
-iscardinal(::Union{K,Type{K}}) where {K<:KeysSpline} = true
-isnormalized(::Union{K,Type{K}}) where {K<:KeysSpline} = true
-Base.summary(ker::KeysSpline) = @sprintf("KeysSpline(%.1f)", ker.a)
-
-iscardinal(::Union{K,Type{K}}) where {K<:KeysSplinePrime} = false
-isnormalized(::Union{K,Type{K}}) where {K<:KeysSplinePrime} = false
-Base.summary(ker::KeysSplinePrime) = @sprintf("KeysSplinePrime(%.1f)", ker.a)
-
-function convert(::Type{KeysSpline{T,B}},
-                 ker::KeysSpline) where {T<:AbstractFloat, B<:Boundaries}
-    KeysSpline(T, ker.a, B)
-end
-
-function convert(::Type{KeysSplinePrime{T,B}},
-                 ker::KeysSplinePrime) where {T<:AbstractFloat, B<:Boundaries}
-    KeysSplinePrime(T, ker.a, B)
-end
-
-@inline _p(ker::KeysSpline{T,B}, x::T) where {T,B} =
-    (ker.p3*x + ker.p2)*x*x + ker.p0
-
-@inline _q(ker::KeysSpline{T,B}, x::T) where {T,B} =
-    ((ker.q3*x + ker.q2)*x + ker.q1)*x + ker.q0
-
-function (ker::KeysSpline{T,B})(x::T) where {T<:AbstractFloat,B}
-    a = abs(x)
-    return (a ≥ 2 ? zero(T) : a ≤ 1 ? _p(ker, a) : _q(ker, a))
-end
-
-@inline _p(ker::KeysSplinePrime{T,B}, x::T, a::T) where {T,B} =
-    (ker.p2*a + ker.p1)*x
-
-@inline _q(ker::KeysSplinePrime{T,B}, x::T, s::T, a::T) where {T,B} =
-    ((ker.q2*a + ker.q1)*x + ker.q0*s)
-
-function (ker::KeysSplinePrime{T,B})(x::T) where {T<:AbstractFloat,B}
-    s, a = signabs(x)
-    return (a ≥ 2 ? zero(T) : a ≤ 1 ? _p(ker, x, a) : _q(ker, x, s, a))
-end
-
-@inline function getweights(ker::KeysSpline{T,B},
-                            t::T) where {T<:AbstractFloat,B}
-    # t ∈ [0,1), S=4
-    # w1 = f(t1) = f4(t1) = q(t1)     t1 = t + 1 ∈ [1,2)
-    # w2 = f(t2) = f3(t2) = p(t2)     t2 = t     ∈ [0,1)
-    # w3 = f(t3) = f2(t3) = p(-t3)    t3 = t - 1 ∈ [-1,0)
-    # w4 = f(t4) = f1(t4) = q(-t4)    t4 = t - 2 ∈ [-2,0)
-    #
-    # w1 = a*(1 - t)^2*t
-    # w2 = 1 - (3 + a)*t^2 + (2 + a)*t^3
-    # w3 = -t*(a*(1 - t)^2 + t*(2*t - 3))
-    # w4 = a*(1 - t)*t^2
-    #
-    # in 12 operations (instead of 25 with the polynomials):
-    a = ker.a
-    r = 1 - t
-    s = (ker.p3*r + 1)*t*t
-    art = a*r*t
-    w1 = art*r
-    w4 = art*t
-    w2 = 1 - s
-    w3 = s - w1 - w4
-    return w1, w2, w3, w4
-end
-
-@inline function getweights(ker::KeysSplinePrime{T,B},
-                            t::T) where {T<:AbstractFloat,B}
-    # t ∈ [0,1), S=4
-    # w1 = f(t1) = f4(t1) =  q(t1)     t1 = t + 1 ∈ [1,2)
-    # w2 = f(t2) = f3(t2) =  p(t2)     t2 = t     ∈ [0,1)
-    # w3 = f(t3) = f2(t3) = -p(-t3)    t3 = t - 1 ∈ [-1,0)
-    # w4 = f(t4) = f1(t4) = -q(-t4)    t4 = t - 2 ∈ [-2,0)
-    #
-    # w1 = a*(1 - t)*(1 - 3*t)
-    # w2 = (3*(2 + a)*t - 2*(3 + a))*t
-    # w3 = (1 - t)*(3*(2 + a)*t - a)
-    # w4 = a*(2 - 3*t)*t
-    #
-    # in 13 operations:
-    a = ker.a
-    b = ker.b
-    c = ker.c
-    q = 3*t
-    r = 1 - t
-    s = c*q
-    w1 = (a - a*q)*r
-    w2 = (s - b)*t
-    w3 = (s - a)*r
-    w4 = (2 - q)*t*a
-    return w1, w2, w3, w4
-end
+floating_point_type(T::Type{<:Floats}) = T
+floating_point_type(T::Type{<:Real}) = Float64
+floating_point_type(types::Type{<:Real}...) =
+    floating_point_type(promote_type(types...))
 
 #------------------------------------------------------------------------------
 # LANCZOS RESAMPLING KERNEL
 
 """
-    LanczosKernel([T=Float64,] S, B=Flat)
+    LanczosKernel{S,T}()
 
 yields an instance of a Lanczos re-sampling kernel of support size `S` (which
-must be even), for floating-point type `T` and boundary conditions `B`.
+must be even) and for floating-point type `T`.
 
 The Lanczos re-sampling kernels are even cardinal functions which tend to be
-normalized for large support size.  They are defined by (see also
-https://en.wikipedia.org/wiki/Lanczos_resampling):
+normalized for large support size.  They are defined by:
 
     ker(x) = S/(2*(π*x)^2)*sin(π*x)*sin(2*π*x/S)     if |x| ≤ S/2
              0                                       if |x| ≥ S/2
@@ -1206,81 +1006,58 @@ kernel `ker` (also see the constructor [`LanczosKernelPrime`](@ref)).
 """ LanczosKernel
 
 """
-    LanczosKernelPrime([T=Float64,] S, B=Flat)
+    LanczosKernelPrime{S,T}()
 
 yields a kernel instance that is the 1st derivative of the Lanczos re-sampling
 kernel (see [`LanczosKernel`](@ref)) of support size `S` and for floating-point
-type `T` and boundary conditions `B`.
+type `T`.
 
 """ LanczosKernelPrime
 
-struct LanczosKernel{T,S,B} <: Kernel{T,S,B}
+struct LanczosKernel{S,T} <: Kernel{T,S}
     a::T   # 1/2 support
     b::T   # a/pi^2
     c::T   # pi/a
-    function LanczosKernel{T,S,B}() where {T,S,B}
-        @assert typeof(S) == Int && S > 0 && iseven(S)
-        a = frac(T,S,2)
-        new{T,S,B}(a, a/T(π)^2, T(π)/a)
+    function LanczosKernel{S,T}() where {S,T}
+        (typeof(S) == Int && S > 0 && iseven(S)) || bad_lanczos_kernel_size()
+        a = T(S>>1)
+        new{S,T}(a, a/T(π)^2, T(π)/a)
     end
 end
 
-struct LanczosKernelPrime{T,S,B} <: Kernel{T,S,B}
+struct LanczosKernelPrime{S,T} <: Kernel{T,S}
     a::T   # 1/2 support
     c::T   # pi/a
-    function LanczosKernelPrime{T,S,B}() where {T,S,B}
-        @assert typeof(S) == Int && S > 0 && iseven(S)
-        a = T(S)/T(2)
-        new{T,S,B}(a, T(π)/a)
+    function LanczosKernelPrime{S,T}() where {S,T}
+        (typeof(S) == Int && S > 0 && iseven(S)) || bad_lanczos_kernel_size()
+        a = T(S>>1)
+        new{S,T}(a, T(π)/a)
     end
 end
 
-function LanczosKernel(::Type{T}, s::Integer,
-                       ::Type{B} = Flat) where {T<:AbstractFloat,
-                                                B<:Boundaries}
-    return LanczosKernel{T,Int(s),B}()
-end
+@noinline bad_lanczos_kernel_size() =
+    throw(ArgumentError("Lanczos kernel size must be an even integer"))
 
-function LanczosKernelPrime(::Type{T}, s::Integer,
-                            ::Type{B} = Flat) where {T<:AbstractFloat,
-                                                     B<:Boundaries}
-    return LanczosKernelPrime{T,Int(s),B}()
-end
+# FIXME: These constructors are not type stable.
 
-LanczosKernel(s::Integer, ::Type{B} = Flat) where {B<:Boundaries} =
-    LanczosKernel{Float64,Int(s),B}()
-
-LanczosKernelPrime(s::Integer, ::Type{B} = Flat) where {B<:Boundaries} =
-    LanczosKernelPrime{Float64,Int(s),B}()
+# Outer constructors.
+LanczosKernel{S}(T::Type{<:Floats} = Float64) where {S} =
+    LanczosKernel{S,T}()
+LanczosKernelPrime{S}(T::Type{<:Floats} = Float64) where {S} =
+    LanczosKernelPrime{S,T}()
 
 iscardinal(::Union{K,Type{K}}) where {K<:LanczosKernel} = true
-isnormalized(::Union{K,Type{K}}) where {K<:LanczosKernel} = false
-Base.summary(::LanczosKernel{T,S,B}) where {T,S,B} = "LanczosKernel($S)"
-
 iscardinal(::Union{K,Type{K}}) where {K<:LanczosKernelPrime} = false
+
+isnormalized(::Union{K,Type{K}}) where {K<:LanczosKernel} = false
 isnormalized(::Union{K,Type{K}}) where {K<:LanczosKernelPrime} = false
-Base.summary(::LanczosKernelPrime{T,S,B}) where {T,S,B} = "LanczosKernelPrime($S)"
-
-# `convert` should give something which is almost equivalent, so here we
-# enforce the same support size.
-function convert(::Type{LanczosKernel{T,S,B}},
-                 ::LanczosKernel{<:AbstractFloat,S,<:Boundaries}
-                 ) where {T<:AbstractFloat,S,B<:Boundaries}
-    LanczosKernel{T,S,B}()
-end
-
-function convert(::Type{LanczosKernelPrime{T,S,B}},
-                 ::LanczosKernelPrime{<:AbstractFloat,S,<:Boundaries}
-                 ) where {T<:AbstractFloat,S,B<:Boundaries}
-    LanczosKernelPrime{T,S,B}()
-end
 
 # Expression for non-zero argument in the range (-S/2,S/2).
-@inline _p(ker::LanczosKernel{T,S,B}, x::T) where {T,S,B} =
+@inline _p(ker::LanczosKernel{S,T}, x::T) where {S,T} =
     ker.b*sin(π*x)*sin(ker.c*x)/(x*x)
 
 # Expression for non-zero argument in the range (-S/2,S/2).
-@inline function _p(ker::LanczosKernelPrime{T,S,B}, x::T) where {T,S,B}
+@inline function _p(ker::LanczosKernelPrime{S,T}, x::T) where {S,T}
     x1 = π*x
     s1, c1 = sin(x1), cos(x1)
     r1 = s1/x1
@@ -1290,13 +1067,13 @@ end
     return (c1*r2 + c2*r1 - 2*r1*r2)/x
 end
 
-(ker::LanczosKernel{T,S,B})(x::T) where {T,S,B} =
+(ker::LanczosKernel{S,T})(x::T) where {S,T} =
     (abs(x) ≥ ker.a ? zero(T) : x == 0 ? one(T) : _p(ker, x))
 
-(ker::LanczosKernelPrime{T,S,B})(x::T) where {T,S,B} =
+(ker::LanczosKernelPrime{S,T})(x::T) where {S,T} =
     (abs(x) ≥ ker.a ? zero(T) : x == 0 ? one(T) : _p(ker, x))
 
-@generated function getweights(ker::LanczosKernel{T,S,B}, t::T) where {T,S,B}
+@generated function getweights(ker::LanczosKernel{S,T}, t::T) where {S,T}
     c = (S >> 1) # central index
     W = [Symbol("w",i) for i in 1:S] # all weights
     Expr(:block,
@@ -1311,7 +1088,7 @@ end
          Expr(:return, Expr(:tuple, W...)))
 end
 
-@generated function getweights(ker::LanczosKernelPrime{T,S,B}, t::T) where {T,S,B}
+@generated function getweights(ker::LanczosKernelPrime{S,T}, t::T) where {S,T}
     c = (S >> 1) # central index
     W = [Symbol("w",i) for i in 1:S] # all weights
     Expr(:block,
@@ -1325,202 +1102,166 @@ end
 
 #------------------------------------------------------------------------------
 
+@inline frac(::Type{T}, a::Integer, b::Integer) where {T<:Floats} = (T(a)/T(b))
+@inline square(x) = x*x
+@inline cube(x) = x*x*x
+
+"""
+    signabs(x) -> sign(x), abs(x)
+
+yields the sign and absolute value of `x` both with the same type as `x`.
+
+"""
+@inline signabs(x::Unsigned) = (one(x), x)
+@inline signabs(x::Real) = ifelse(x > 0, (one(x), x),
+                                  ifelse(x < 0, (oftype(one(x),-1), -x),
+                                         (zero(x), zero(x))))
+
+#------------------------------------------------------------------------------
+
 # Manage to call the short version of `show` for MIME output.
 Base.show(io::IO, ::MIME"text/plain", ker::Kernel) = show(io, ker)
 
-"""
-```julia
-brief(ker)
-```
-
-yields a brief description of the kernel `ker`.
-
-""" brief
-
-for (T, str) in (
-    (:RectangularSpline, "rectangular B-spline"),
-    (:RectangularSplinePrime, "derivative of rectangular B-spline"),
-    (:LinearSpline, "linear B-spline"),
-    (:LinearSplinePrime, "derivative of linear B-spline"),
-    (:QuadraticSpline, "quadratic B-spline"),
-    (:QuadraticSplinePrime, "derivative of quadratic B-spline"),
-    (:CubicSpline, "cubic B-spline"),
-    (:CubicSplinePrime, "derivative of cubic B-spline"),
-    (:CardinalCubicSpline, "cardinal cubic spline"),
-    (:CardinalCubicSplinePrime, "derivative of cardinal cubic spline"),
-    (:CatmullRomSpline, "Catmull & Rom cubic spline"),
-    (:CatmullRomSplinePrime, "derivative of Catmull & Rom cubic spline"),
-    (:MitchellNetravaliSpline, "Mitchell & Netravali cubic spline"),
-    (:MitchellNetravaliSplinePrime, "derivative of Mitchell & Netravali cubic spline"),
-    (:KeysSpline, "Keys cubic spline"),
-    (:KeysSplinePrime, "derivative of Keys cubic spline"))
-    @eval brief(::$T) = $str
+function Base.show(io::IO, ker::Kernel)
+    summary(io, ker)
+    print(io, '(')
+    join(io, values(ker), ',')
+    print(io, ')')
 end
 
-brief(::LanczosKernel{T,S,B}) where {T,S,B} =
-    "Lanczos resampling kernel of size $S"
+"""
+    InterpolationKernels.with_eltype(T, ker)
 
-brief(::LanczosKernelPrime{T,S,B}) where {T,S,B} =
+yields an instance (resp. a type) of interpolation kernel instance (resp. type)
+`ker` but with floating-point type `T`.
+
+"""
+with_eltype(::Type{T}, ::Type{K}) where {T<:Floats,K<:Kernel{T}} = K
+with_eltype(::Type{T}, ker::Kernel{T}) where {T<:Floats} = ker
+
+# The first instance below is needed to automatically do nothing when
+# converting to a kernel of the same type (remmeber that convert is called to
+# instanciate structure fields).
+convert(::Type{K}, ker::K) where {K<:Kernel} = ker
+convert(::Type{K}, ker::Kernel) where {K<:Kernel} = K(ker)
+
+Kernel(ker::Kernel) = ker
+Kernel{T}(ker::Kernel) where {T<:Floats} = with_eltype(T, ker)
+Kernel{T,S}(ker::Kernel{<:Any,S}) where {T<:Floats,S} = with_eltype(T, ker)
+
+for T in FLOATS
+    @eval Base.$T(ker::Kernel) = with_eltype($T, ker)
+end
+
+"""
+    InterpolationKernels.brief(ker)
+
+yields a brief description of the kernel type or instance `ker`.
+
+"""
+brief(ker::Kernel) = brief(typeof(ker))
+
+brief(::Type{<:BSpline{1}}) = "rectangular B-spline"
+brief(::Type{<:BSplinePrime{1}}) = "derivative of rectangular B-spline"
+
+brief(::Type{<:BSpline{2}}) = "linear B-spline"
+brief(::Type{<:BSplinePrime{2}}) = "derivative of linear B-spline"
+
+brief(::Type{<:BSpline{3}}) = "quadratic B-spline"
+brief(::Type{<:BSplinePrime{3}}) = "derivative of quadratic B-spline"
+
+brief(::Type{<:BSpline{4}}) = "cubic B-spline"
+brief(::Type{<:BSplinePrime{4}}) = "derivative of cubic B-spline"
+
+@noinline brief(::Type{<:BSpline{S}}) where {S} = "B-spline of order $S"
+@noinline brief(::Type{<:BSplinePrime{S}}) where {S} =
+    "derivative of B-spline of order $S"
+
+brief(::Type{<:CubicSpline}) = "generic cubic spline"
+brief(::Type{<:CubicSplinePrime}) = "derivative of generic cubic spline"
+
+brief(::Type{<:CardinalCubicSpline}) = "cardinal cubic spline"
+brief(::Type{<:CardinalCubicSplinePrime}) =
+    "derivative of cardinal cubic spline"
+
+brief(::Type{<:CatmullRomSpline}) = "Catmull & Rom cubic spline"
+brief(::Type{<:CatmullRomSplinePrime}) =
+    "derivative of Catmull & Rom cubic spline"
+
+@noinline brief(::Type{<:LanczosKernel{S}}) where {S} =
+    "Lanczos resampling kernel of size $S"
+@noinline brief(::Type{<:LanczosKernelPrime{S}}) where {S} =
     "derivative of Lanczos resampling kernel of size $S"
 
 # Manage to yield the derivative of (some) kernels when the notation `ker'` is
 # used.
-for T in (:RectangularSpline, :LinearSpline, :QuadraticSpline,
-          :CubicSpline, :CatmullRomSpline)
-    @eval adjoint(ker::$T{T,B}) where {T,B} = $(Symbol(T,:Prime)){T,B}()
-end
-
-adjoint(ker::CardinalCubicSpline{T,B}) where {T,B} =
-    CardinalCubicSplinePrime{T,B}(ker.c)
-
-adjoint(ker::LanczosKernel{T,S,B}) where {T,S,B} =
-    LanczosKernelPrime{T,S,B}()
-
-adjoint(ker::MitchellNetravaliSpline{T,B}) where {T,B} =
-    MitchellNetravaliSplinePrime{T,B}(ker.b, ker.c)
-
-adjoint(ker::KeysSpline{T,B}) where {T,B} =
-    KeysSplinePrime{T,B}(ker.a)
-
-
-# Provide methods for parameter-less kernels.
-for K in (:RectangularSpline, :RectangularSplinePrime,
-          :LinearSpline, :LinearSplinePrime,
-          :QuadraticSpline, :QuadraticSplinePrime,
-          :CubicSpline, :CubicSplinePrime,
-          :CatmullRomSpline, :CatmullRomSplinePrime)
-    @eval begin
-
-        # Constructors.
-        function $K(::Type{T} = Float64, ::Type{B} = Flat
-                    ) where {T<:AbstractFloat,B<:Boundaries}
-            $K{T,B}()
-        end
-
-        function $K(::Type{B}, ::Type{T} = Float64
-                    ) where {T<:AbstractFloat,B<:Boundaries}
-            $K{T,B}()
-        end
-
-        # Conversion to different types.
-        function convert(::Type{$K{T,B}}, ::$K
-                         ) where {T<:AbstractFloat,B<:Boundaries}
-            $K{T,B}()
-        end
-
-    end
-end
+adjoint(ker::BSpline{S,T}) where {S,T} = BSplinePrime{S,T}()
+adjoint(ker::CubicSpline{T}) where {T} = CubicSplinePrime{T}(ker.a, ker.b)
+adjoint(ker::CardinalCubicSpline{T}) where {T} = CardinalCubicSplinePrime{T}(ker.a)
+adjoint(ker::CatmullRomSpline{T}) where {T} = CatmullRomSplinePrime{T}()
+adjoint(ker::LanczosKernel{S,T}) where {S,T} = LanczosKernelPrime{S,T}()
 
 # Provide methods for all kernels.
-for K in subtypes(Kernel)
+for K in (:BSpline,             :BSplinePrime,
+          :CubicSpline,         :CubicSplinePrime,
+          :CardinalCubicSpline, :CardinalCubicSplinePrime,
+          :CatmullRomSpline,    :CatmullRomSplinePrime,
+          :LanczosKernel,       :LanczosKernelPrime)
 
-    lanczos = (K <: LanczosKernel || K <: LanczosKernelPrime)
+    has_size = (K === :BSpline || K === :BSplinePrime ||
+        K === :LanczosKernel || K === :LanczosKernelPrime)
 
     # We want that calling the kernel on a different type of real argument than
     # the floting-point type of the kernel convert the argument.
     # Unfortunately, defining:
     #
-    #     (ker::$K{T,B})(x::Real) where {T<:AbstractFloat,B<:Boundaries} =
-    #         ker(convert(T,x))
+    #     (ker::$K{T})(x::Real) where {T<:Floats} = ker(convert(T,x))
     #
     # leads to ambiguities, the following is ugly but works...
-    for T in subtypes(AbstractFloat), R in (subtypes(AbstractFloat)..., Integer)
+    for T in FLOATS, R in (FLOATS..., :Integer)
         if R != T
-            if lanczos
-                @eval @inline (ker::$K{$T,S,B})(x::$R) where {S,B<:Boundaries} =
-                    ker($T(x))
+            if has_size
+                @eval @inline (ker::$K{S,$T})(x::$R) where {S} = ker($T(x))
             else
-                @eval @inline (ker::$K{$T,B})(x::$R) where {B<:Boundaries} =
-                    ker($T(x))
+                @eval @inline (ker::$K{$T})(x::$R) = ker($T(x))
             end
         end
     end
 
-    # Change type.
-    for R in (:Float16, :Float32, :Float64)
-        if lanczos
-            @eval Base.$R(ker::$K{T,S,B}) where {T,S,B} =
-                convert($K{$R,S,B}, ker)
-        else
-            @eval Base.$R(ker::$K{T,B}) where {T,B} =
-                convert($K{$R,B}, ker)
-        end
-    end
-
-    # Change boundary conditions.
-    for C in (:Flat, :SafeFlat)
-        if lanczos
-            @eval $C(ker::$K{T,S,B}) where {T,S,B} =
-                convert($K{T,S,$C}, ker)
-        else
-            @eval $C(ker::$K{T,B}) where {T,B} =
-                convert($K{T,$C}, ker)
-        end
-    end
-
     # Calling the kernel on an array.  FIXME: should be deprecated!
-    if lanczos
-        @eval function (ker::$K{T,S,B})(A::AbstractArray
-                                        ) where {T<:AbstractFloat,S,
-                                                 B<:Boundaries}
-            map((x) -> ker(x), A)
-        end
+    if has_size
+        @eval (ker::$K{S,T})(A::AbstractArray) where {S,T<:Floats} =
+            map(ker, A)
     else
-        @eval function (ker::$K{T,B})(A::AbstractArray
-                                      ) where {T<:AbstractFloat,B<:Boundaries}
-            map((x) -> ker(x), A)
-        end
+        @eval (ker::$K{T})(A::AbstractArray) where {T<:Floats} =
+            map(ker, A)
     end
 
-    # Calling the kernel as a function to convert to another floating-point
-    # type and/or other boundary conditions.
-    if lanczos
+    # Change floating-point type.
+    @eval $K{T}(ker::$K) where {T<:Floats} = with_eltype(T, ker)
+    if has_size
         @eval begin
-            (ker::$K{T,S,B})(::Type{newT}, ::Type{newB}=B) where {
-                T, S, B, newT<:AbstractFloat, newB<:Boundaries
-            } = convert($K{newT,S,newB}, ker)
-
-            (ker::$K{T,S,B})(::Type{newB}, ::Type{newT}=T) where {
-                T, S, B, newT<:AbstractFloat, newB<:Boundaries
-            } = convert($K{newT,S,newB}, ker)
-
-            convert(::Type{$K{T,S,B}}, ker::$K{T,S,B}) where {T,S,B} = ker
+            $K{S,T}(ker::$K{S}) where {S,T<:Floats} = with_eltype(T, ker)
+            with_eltype(::Type{T}, ::Type{<:$K{S}}) where {S,T<:Floats} = $K{S,T}
+            with_eltype(::Type{T}, ker::$K{S}) where {S,T<:Floats} = $K{S,T}(values(ker)...)
+            with_eltype(::Type{T}, ker::$K{T,S}) where {S,T<:Floats} = ker
         end
     else
         @eval begin
-            (ker::$K{T,B})(::Type{newT}, ::Type{newB}=B) where {
-                T, B, newT<:AbstractFloat, newB<:Boundaries
-            } = convert($K{newT,newB}, ker)
-
-            (ker::$K{T,B})(::Type{newB}, ::Type{newT}=T) where {
-                T, B, newT<:AbstractFloat, newB<:Boundaries
-            } = convert($K{newT,newB}, ker)
-
-            convert(::Type{$K{T,B}}, ker::$K{T,B}) where {T,B} = ker
+            with_eltype(::Type{T}, ::Type{<:$K}) where {T<:Floats} = $K{T}
+            with_eltype(::Type{T}, ker::$K{T}) where {T<:Floats} = ker
+            with_eltype(::Type{T}, ker::$K) where {T<:Floats} = $K{T}(values(ker)...)
         end
     end
 
+    # Method `summary` prints the type of an object.
+    if has_size
+        @eval Base.summary(io::IO, ::$K{S,T}) where {S,T} =
+            print(io, $(string(K, "{")), S, ',', T, '}')
+    else
+        @eval Base.summary(io::IO, ::$K{T}) where {T} =
+            print(io, $(string(K, "{")), T, '}')
+    end
 end
-
-convert(::Type{Kernel}, ker::Kernel) = ker
-convert(::Type{Kernel{T}}, ker::Kernel{T}) where {T<:AbstractFloat} = ker
-convert(::Type{Kernel{T}}, ker::Kernel) where {T<:AbstractFloat} = ker(T)
-convert(::Type{Kernel{T,S}}, ker::Kernel{T,S}) where {T<:AbstractFloat,S} = ker
-convert(::Type{Kernel{T,S,B}}, ker::Kernel{T,S,B}) where {T<:AbstractFloat,S,B} = ker
-convert(::Type{Kernel{T,S,B}}, ker::Kernel{<:Any,S,<:Any}) where {T<:AbstractFloat,S,B} = ker(T, B)
-
-# Deprecations.
-# Prime = ′    \prime + [tab]
-# Second = ″
-# Third = ‴
-
-@deprecate          KeysSpline′                  KeysSplinePrime
-@deprecate         CubicSpline′                 CubicSplinePrime
-@deprecate        LinearSpline′                LinearSplinePrime
-@deprecate       LanczosKernel′               LanczosKernelPrime
-@deprecate     QuadraticSpline′             QuadraticSplinePrime
-@deprecate    CatmullRomSpline′            CatmullRomSplinePrime
-@deprecate CardinalCubicSpline′         CardinalCubicSplinePrime
-@deprecate MitchellNetravaliSpline′ MitchellNetravaliSplinePrime
 
 end # module

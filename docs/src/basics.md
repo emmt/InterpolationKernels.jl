@@ -1,32 +1,37 @@
 # Basic usage
 
-An interpolation kernel `Kernel{T,S,B}` is parametrized by the floating-point
-type `T` of its coefficients, by the size `S` of its support and by the
-boundary conditions `B` applied for extrapolation (see [Boundary
-conditions](boundaries.md)).  For efficiency reasons, only kernels with (small)
-finite size supports are implemented.  To create a kernel instance, call its
-constructor; for example:
+An interpolation kernel `Kernel{T,S}` is parametrized by the floating-point
+type `T` of its coefficients and by the (integer) size `S` of its support.  For
+efficiency reasons, only kernels with (small) finite size supports are
+implemented.  To create a kernel instance, call its constructor; for example:
 
 ```julia
-ker = LanczosKernel(6)
+ker = LanczosKernel{6}()
 ```
 
 yields a Lanczos re-sampling kernel of size 6 (see [Interpolation
 kernels](kernels.md) for an exhaustive list of kernels implemented in
-`InterpolationKernels`).
+`InterpolationKernels`) and using floating-point tytpe `Float64` for
+computations.  The same kind of kernel with a specific floating-point type, say
+`T`, is created as:
+
+```julia
+ker = LanczosKernel{6,T}()
+```
 
 Any interpolation kernel `ker` is a callable object which may be used as a
 function with a real argument:
 
 ```julia
-    ker(x::Real)
+ker(x::Real)
 ```
 
-yields kernel value at offset `x`.  All kernel supports are symmetric; that is
-`ker(x)` is zero if `abs(x) > S/2` with `S` the size of the kernel support.
+yields kernel value at `x`.  In `InterpolationKernels`, all kernel supports are
+symmetric; that is `ker(x)` is zero if `abs(x) > S/2` with `S` the size of the
+kernel support.
 
 
-## Simple methods
+## Basic methods
 
 Some simple methods are available for any interpolation kernel `ker`:
 
@@ -35,12 +40,44 @@ Some simple methods are available for any interpolation kernel `ker`:
 - `length(ker)` yields the number `S` of samples in the support of `ker` which
   is also the number of neighbors involved in an interpolation by this kernel;
 
-- [`boundaries(ker)`](@ref) yields `B` the type of the boundary conditions
-  applied for extrapolation.
+Since the floating-point type `T` and the support size `S` are parameters of
+the interpolation kernel type, the above methods can also be applied to the
+type of an interpolation kernel.
 
-Since the floating-point type `T`, the support size `S` and the boundary
-conditions `B` are parameters of the interpolation kernel type, the above
-methods can also be applied to the type of an interpolation kernel.
+Some interpolation kernels have numerical parameters, these parameters can be
+retrieved by:
+
+```julia
+values(ker)
+```
+
+which yields a tuple of parameters, possibly empty.  A kernel instance
+identical to `ker` can be built as follows:
+
+```julia
+typeof(ker)(values(ker)...)
+```
+
+
+## Kernel floating-point type
+
+Calling a kernel `ker` with a real argument `x`, as `ker(x)`, always yield a
+floating-point of type `T = eltype(ker)`.  This property has been imposed for
+efficiency reasons when interpolating arrays.  Calling a kernel `ker` with an
+argument `x` that has a different floating-point type is therefore less
+efficient as it involves converting the value of the real `x`.  It is however
+very easy to change the floating-point type used by a kernel.
+
+A kernel object `ker` can be *converted* to use a given floating-point type.
+For example, assuming `ker` is a kernel instance, one can do either of:
+
+```julia
+convert(Kernel{Float32}, ker)
+Kernel{Float32}(ker)
+Float32(ker)
+```
+
+to use `Float32` floating-point arithmetic with `ker`.
 
 
 ## Traits
@@ -56,53 +93,20 @@ as argument.
 ## Derivative
 
 The expression `ker'` yields a kernel instance which is the 1st derivative of
-the kernel `ker`.  Having the derivative of a kernel is useful because, thanks
-to linearity of the interpolation, interpolating an array with the derivative
-`ker'` is equivalent of taking the 1st derivative of the continuous function
-given by interpolating the same array with the kernel `ker`.
+the kernel `ker`.  Having the derivative of a kernel is useful in a number of
+practical cases.  For instance, thanks to linearity of the [interpolation
+procedure](interpolation.md), interpolating an array `A` with the derivative
+`ker'` is equivalent to taking the 1st derivative of the continuous function
+modeled by interpolating the array `A` with the kernel `ker`.
 
 
 ## Interpolation weights
 
 Efficient computation of interpolation weights is implemented by the
-[`getweights`](@ref) method.  The principles of interpolation are detailed in
-[another section](interpolation.md).
-
-
-## Kernel conversion
-
-A kernel object `ker` can be *converted* to change its floating-point type
-and/or its boundary conditions.  For example, assuming `ker` is a kernel
-instance, one can do:
-
-```julia
-convert(Kernel{Float32}, ker)
-convert(Kernel{eltype(ker),length(ker),SafeFlat}, ker)
-```
-
-to use `Float32` floating-point arithmetic or to choose [`SafeFlat`](@ref)
-boundary conditions but keeping the same floating-point type and (of course)
-the same support size.
-
-Such expressions are a bit tedious to type, so shortcuts are provided.  It is
-sufficient to call a kernel with the new floating-point type `T` and/or boundary
-conditions `B` to perform the conversion:
-
-```julia
-ker([T::Type{<:AbstractFloat} = eltype(ker),] B::Type{<:Boundaries}=boundaries(ker))
-```
-
-where any of `T` or `B` can be omitted to keep the current kernel setting and
-their order is irrelevant.  Beware that changing the floating-point type may
-lead to a loss of precision if the new floating-point type has more digits.  It
-is possible to change the floating-point type of a kernel or its boundary
-conditions by something like:
-
-```julia
-Float32(ker)    # change floating-point type of kernel `ker`
-SafeFlat(ker)   # change boundary conditions of kernel `ker`
-```
-
-The above calls do not follow the usuall conventions that a constructor may be
-called to convert its argument(s) to an instance of its type, this is however
-practical.
+[`InterpolationKernels.getcoefs`](@ref)
+[`InterpolationKernels.getweights`](@ref) methods.  These methods are not
+exported because they are only required to implement array interpolation, as
+done by the [FineShift](https://github.com/emmt/FineShift.jl) or
+[LinearInterpolators](https://github.com/emmt/LinearInterpolators.jl) packages.
+The principles of interpolation are detailed in [another
+section](interpolation.md).

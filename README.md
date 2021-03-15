@@ -5,7 +5,10 @@
 | [![][doc-dev-img]][doc-dev-url] | [![][license-img]][license-url] | [![][travis-img]][travis-url] [![][appveyor-img]][appveyor-url] | [![][coveralls-img]][coveralls-url] [![][codecov-img]][codecov-url] |
 
 The `InterpolationKernels` package provides a library of interpolation kernels
-for [Julia](https://julialang.org/).
+for [Julia](https://julialang.org/).  As suggested by their name,
+interpolations kernels are mostly designed for interpolation, they can be
+thought as smart functions that know their derivative and that implement
+optimized computation of interpolation weights.
 
 You may have a look at some sections of the [the latest
 documentation](https://emmt.github.io/InterpolationKernels.jl/dev/):

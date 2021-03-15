@@ -9,17 +9,9 @@ the REPL by typing `?` followed by the name of a method or a type.
 ```@docs
 iscardinal
 isnormalized
-brief
-getweights
-```
-
-## Boundary conditions
-
-```@docs
-Boundaries
-Flat
-SafeFlat
-boundaries
+InterpolationKernels.brief
+InterpolationKernels.getweights
+InterpolationKernels.getcoefs
 ```
 
 ## Kernels
@@ -28,39 +20,18 @@ boundaries
 Kernel
 ```
 
-### Rectangular B-spline
+### B-splines
 
 ```@docs
-RectangularSpline
-RectangularSplinePrime
+BSpline
+BSplinePrime
 ```
 
-### Linear B-spline
-
-```@docs
-LinearSpline
-LinearSplinePrime
-```
-
-### Quadratic B-spline
-
-```@docs
-QuadraticSpline
-QuadraticSplinePrime
-```
-
-### Cubic B-spline
+### Generic cubic spline
 
 ```@docs
 CubicSpline
 CubicSplinePrime
-```
-
-### Catmull-Rom interpolation kernel
-
-```@docs
-CatmullRomSpline
-CatmullRomSplinePrime
 ```
 
 ### Cardinal cubic splines
@@ -70,11 +41,11 @@ CardinalCubicSpline
 CardinalCubicSplinePrime
 ```
 
-### Keys cardinal kernels
+### Catmull-Rom interpolation kernel
 
 ```@docs
-KeysSpline
-KeysSplinePrime
+CatmullRomSpline
+CatmullRomSplinePrime
 ```
 
 ### Mitchell-Netravali kernels

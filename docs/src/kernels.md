@@ -1,94 +1,116 @@
 # Kernels
 
-`InterpolationKernels` provide the following kernels:
+`InterpolationKernels` provide the following kernels (`T` is an optional
+floating-point type):
 
-| Name                      | Support | Cardinal | Parameters | Description                  |
-|:--------------------------|:-------:|:--------:|:----------:|:-----------------------------|
-| `RectangularSpline`       | 1       | yes      |            |                              |
-| `LinearSpline`            | 2       | yes      |            | linear B-spline              |
-| `QuadraticSpline`         | 3       | no       |            | quadratic B-spline           |
-| `CubicSpline`             | 4       | no       |            | cubic B-spline               |
-| `CatmullRomSpline`        | 4       | yes      |            | Catmull-Rom kernels          |
-| `CardinalCubicSpline`     | 4       | yes      | `a`        |                              |
-| `KeysSpline`              | 4       | yes      | `a`        | Keys cardinal kernels        |
-| `MitchellNetravaliSpline` | 4       | yes/no   | `b`, `c`   | Mitchell & Netravali kernels |
-| `LanczosKernel`           | `S`     | yes      | `S`        | Lanczos re-sampling kernels  |
+| Types                        | Support | Cardinal | Parameters | Description                                                     |
+|:-----------------------------|:-------:|:--------:|:----------:|:----------------------------------------------------------------|
+| `BSpline{1,T}`               | 1       | yes      |            | [rectangular B-spline](#Rectangular-interpolation-kernel)       |
+| `BSpline{2,T}`               | 2       | yes      |            | [linear B-spline](#Triangular-interpolation-kernel)             |
+| `BSpline{3,T}`               | 3       | no       |            | [quadratic B-spline](#Quadratic-B-spline)                       |
+| `BSpline{4,T}`               | 4       | no       |            | [cubic B-spline](#Cubic-B-spline)                               |
+| `CubicSpline{T}`             | 4       | yes/no   | `a`, `b`   | [cubic spline](#Cubic-splines)                                  |
+| `CardinalCubicSpline{T}`     | 4       | yes      | `a`        | [cardinal cubic spline](#Cardinal-cubic-spline)                 |
+| `CatmullRomSpline{T}`        | 4       | yes      |            | [Catmull-Rom kernel](#Catmull-Rom-kernel)                       |
+| `MitchellNetravaliSpline{T}` | 4       | yes/no   | `b`, `c`   | [Mitchell & Netravali kernels](#Mitchell-and-Netravali-kernels) |
+| `LanczosKernel{S,T}`         | `S`     | yes      | `S`        | [Lanczos re-sampling kernels](#Lanczos-re-sampling-kernels)     |
 
 In this table, the *Cardinal* column indicates whether a kernel `ker(x)` is a
 cardinal function, that is `ker(k) = 0` for all integers `k` except that
-`ker(0) = 1` which makes such a kernel suitable for interpolation.
+`ker(0) = 1` which makes such a kernel directly suitable for interpolation.
 
 A *spline* is defined as a piecewise polynomial of given degree.  A *B-spline*
-is a spline which is everywhere nonnegative, an even and normalized function
-(its integral is equal to 1).
+of order `S` is a piecesiwe polynomial of degree `S - 1` which is everywhere
+nonnegative, an even and normalized function (its integral is equal to 1).
 
 
+## Rectangular interpolation kernel
 
-## Rectangular Spline
-
-The rectangular spline (also known as box kernel or Fourier window or Dirichlet
-window) is the 1st order (constant) B-spline equals to `1` on `[-1/2,+1/2)`,
-and `0` elsewhere.
-
-A rectangular spline instance is created by:
+The **rectangular interpolation kernel** (also known as **box kernel** or
+**Fourier window** or **Dirichlet window**) is the 1st order B-spline equals to
+`1` on `[-1/2,+1/2)`, and `0` elsewhere.  An instance of a rectangular
+interpolation kernel is created by:
 
 ```julia
-ker = RectangularSpline([T=Float64,] B=Flat)
+ker = BSpline{1,T}()
 ```
 
-Its derivative is created by:
+where the floating-point type `T` is assumed to be `Float64` if omitted.
+
+The expression `ker'` yields the first derivative of the kernel `ker`.  An
+instance of a kernel implementing the first derivative of a rectangular
+interpolation kernel may be directly created by:
 
 ```julia
-dker = RectangularSplinePrime([T=Float64,] B=Flat)
+ BSplinePrime{1,T}()
 ```
 
-or by:
+where, again, the floating-point type parameter `T` my be omitted.
+
+
+## Triangular interpolation kernel
+
+The **triangular interpolation kernel** linear spline (also known as **triangle
+kernel** or **Bartlett window** or **Fejér window**) is the 2nd order B-spline
+defined by:
+
+```
+ker(x) = 1 - |x|       if |x| ≤ 1
+         0             if |x| ≥ 1
+```
+
+An instance of a triangular interpolation kernel is created by:
 
 ```julia
-dker = ker'
+ker = BSpline{2,T}()
 ```
 
-## Linear B-spline
+where the floating-point type `T` is assumed to be `Float64` if omitted.
 
-The linear spline (also known as triangle kernel or Bartlett window or Fejér
-window) is the 2nd order (linear) B-spline.
-
-A linear spline instance is created by:
+The expression `ker'` yields the first derivative of the kernel `ker`.  An
+instance of a kernel implementing the first derivative of a triangular
+interpolation kernel may be directly created by:
 
 ```julia
-ker = LinearSpline([T=Float64,] B=Flat)
+ BSplinePrime{2,T}()
 ```
 
-Its derivative is created by:
+where, again, the floating-point type parameter `T` my be omitted.
 
-```julia
-dker = LinearSplinePrime([T=Float64,] B=Flat)
-```
-or by:
-
-```julia
-dker = ker'
-```
 
 ## Quadratic B-spline
 
-The quadratic spline is the 3rd order (quadratic) B-spline.
+The **quadratic B-spline** is the 3rd order B-spline defined by:
 
-A quadratic spline instance is created by:
-
-```julia
-QuadraticSpline([T=Float64,] B=Flat)
+```
+ker(x) = 3/4 - x^2                   if |x| ≤ 1/2
+         (1/2)*(|x| - 3/2)^2         if |x| ≤ 3/2
+         0                           if |x| ≥ 3/2
 ```
 
-Its derivative is created by:
+An instance of a quadratic B-spline is created by:
 
 ```julia
-QuadraticSplinePrime([T=Float64,] B=Flat)
+BSpline{3,T}()
 ```
+
+where the floating-point type `T` is assumed to be `Float64` if omitted.
+
+The expression `ker'` yields the first derivative of the kernel `ker`.  An
+instance of a kernel implementing the first derivative of a quadratic B-spline
+may be directly created by:
+
+```julia
+ BSplinePrime{3,T}()
+```
+
+where, again, the floating-point type parameter `T` my be omitted.
+
 
 ## Cubic B-spline
 
-The 4th order (cubic) B-spline kernel is defined by:
+The 4th order (cubic) B-spline kernel (also known as **Parzen window** or as
+**de la Vallée Poussin window**) is defined by:
 
 ```
 ker(x) = (|x|/2 - 1)*|x|^2 + 2/3     if |x| ≤ 1
@@ -96,38 +118,124 @@ ker(x) = (|x|/2 - 1)*|x|^2 + 2/3     if |x| ≤ 1
          0                           if |x| ≥ 2
 ```
 
-The cubic B-spline is also known as *Parzen window* or as *de la Vallée Poussin
-window*.
-
-The cubic B-spline is a function of class C² (its derivatives up to the second
-one are everywhere continuous), its first derivative is given by:
-
-```
-ker'(x) = ...
-```
-
-To create an instance of a cubic B-spline, call:
+An of a cubic B-spline is created by:
 
 ```julia
-ker = CubicSpline([T=Float64,] B=Flat)
+BSpline{4,T}()
 ```
 
-where optional arguments are the floating-point type `T<:AbstractFloat` and the
-boundary conditions `B< Boundaries` (their order is irrelevant).
+where the floating-point type `T` is assumed to be `Float64` if omitted.
 
-To create an instance of the derivative of a cubic B-spline, call one of:
-
+The cubic B-spline is a C² continuous function (its derivatives up to the
+second one are everywhere continuous).  The expression `ker'` yields the first
+derivative of the kernel `ker`.  An instance of a kernel implementing the first
+derivative of a cubic B-spline may be directly created by:
 
 ```julia
-kerp = ker'
-kerp = CubicSplinePrime([T=Float64,] B=Flat)
+ BSplinePrime{4,T}()
 ```
+
+where, again, the floating-point type parameter `T` my be omitted.
+
+
+## Cubic splines
+
+An instance of the familily of cubic spline kernels is created by:
+
+```julia
+ker = CubicSpline{T}(a, b)
+```
+
+and is defined by:
+
+```
+ker(x) = ((2 + a - 6b)*|x| +  (9b - a - 3))*x^2 + (1 - 2b)  if |x| ≤ 1
+         ((a + 2b)*|x| - (a + b))*(|x| - 2)^2               if |x| ≤ 2
+         0                                                  if |x| ≥ 2
+```
+
+The parameters `a = ker'(1)` and `b = ker(1)` are the slope and the value of
+the function `ker(x)` at `x = 1`.  The type parameter `T` is the floating-point
+type for computations `T`, it may be omitted in which case it is guessed from
+the types of `a` and `b` as `T = float(promote(typeof(a), typeof(b)))`.
+
+A cubic spline kernel is at least C¹ continuous, the expression `ker'` yields a
+kernel instance implementing the 1st derivative of the generic cubic spline
+`ker`.  Such a derivative may be directly built by calling:
+
+```julia
+CubicSplinePrime{T}(a, b)
+```
+
+Depending on the values of the parameters `a` and `b`, more specific cubic
+spline kernels can be emulated:
+
+* `CubicSpline{T}(-1/2,1/6)` yields a cubic B-spline as built by
+  `BSpline{4,T}()`.
+
+* `CubicSpline{T}(a,0)` yields a cardinal cubic spline as built by
+  `CardinalCubicSpline{T}(a)`.
+
+* `CubicSpline{T}(-1/2,0)` yields a Catmull-Rom kernel as built by
+  `CatmullRomSpline{T}()`.
+
+* `CubicSpline{T}(-b/2-c,b/6)` yields Mitchell & Netravali cubic spline as
+  built by `MitchellNetravaliSpline{T}(b,c)`.
+
+Calling [`BSpline`](@ref), [`CatmullRomSpline`](@ref),
+[`CardinalCubicSpline`](@ref), or [`MitchellNetravaliSpline`](@ref) to build
+these more specialized cubic splines may yield more efficient kernels as
+computations involve more simple expressions.  Instances of `CubicSpline` are
+however very well optimized and, in practice, they may be as fast or even
+faster than their more specialized counterparts.  If ultimate performances
+matter, the [`BenchmarkTools`](https://github.com/JuliaCI/BenchmarkTools.jl)
+package may helps you to decide which kernel to choose for a given machine.
+
+
+## Keys cardinal cubic kernels
+
+Keys kernels are parametric cardinal cubic splines defined by:
+
+```
+ker(x) = 1 - (a + 3)*x^2 + (a + 2)*|x|^3      if |x| ≤ 1
+         -4a + 8a*|x| - 5a*x^2 + a*|x|^3      if 1 ≤ |x| ≤ 2
+         0                                    if |x| ≥ 2
+```
+
+These kernels are C¹ continuous piecewise normalized cardinal cubic spline
+which depend on one parameter `a = ker'(1)` the slope of the function `ker(x)`
+at `x = 1`.
+
+To create an instance of a cardinal cubic spline with parameter `a`, call:
+
+```julia
+ker = CardinalCubicSpline{T}(a)
+```
+
+where `T` is the floating-point type for computations.  If omitted, `T` is
+`typeof(a)` if it is `Float16`, `Float32`, `Float64`, or `BigFloat` and
+`Float64` otherwise.
+
+The expression `ker'` yields the first derivative of the cardinal cubic spline
+`ker`.  An instance of the first derivative of such a kernel can also be
+directly created by:
+
+```julia
+KeysSplinePrime{T}(a)
+```
+
+with the same defalut for `T` if this parameter is omitted.
+
+### References
+
+* Keys, Robert, G., "*Cubic Convolution Interpolation for Digital Image
+  Processing*", IEEE Trans. Acoustics, Speech, and Signal Processing,
+  Vol. ASSP-29, No. 6, December 1981, pp. 1153-1160.
 
 
 ## Catmull-Rom kernel
 
-The Catmull-Rom kernel is a special case of Mitchell & Netravali kernel.  It is
-a piecewise cardinal cubic spline defined by:
+The Catmull-Rom kernel is a cardinal piecewise cubic spline defined by:
 
 ```
 ker(x) = ((3/2)*|x| - (5/2))*x^2 + 1             if |x| ≤ 1
@@ -147,111 +255,47 @@ ker′(x) = ((9/2)*|x| - 5)*x                      if a = |x| ≤ 1
 To create an instance of a Catmull-Rom interpolation kernel, call
 
 ```julia
-ker = CatmullRomSpline([T=Float64,] B=Flat)
+ker = CatmullRomSpline{T}()
 ```
 
-where optional arguments are the floating-point type `T` and the boundary
-conditions `B`.  To create an instance of the derivative of a Catmull-Rom
-interpolation kernel, call one of:
+where the floating-point type `T` is assumed to be `Float64` if omitted.  To
+create an instance of the derivative of a Catmull-Rom interpolation kernel,
+call one of:
 
 ```julia
 kerp = ker'
-kerp = CatmullRomSplinePrime([T=Float64,] B=Flat)
+kerp = CatmullRomSplinePrime{T}()
 ```
-
-
-## Cardinal cubic spline
-
-```julia
-CardinalCubicSpline([T=Float64,] c, B=Flat) -> ker
-```
-
-yields a cardinal cubic spline interpolation kernel for floating-point type `T`
-tension parameter `c` and boundary conditions `B`.  The slope at `x = ±1` is
-`±(c - 1)/2`.  Usually `c ≤ 1`, choosing `c = 0` yields a Catmull-Rom spline,
-`c = 1` yields all zero tangents, `c = -1` yields a truncated approximation of
-a cardinal sine, `c = -1/2` yields an interpolating cubic spline with
-continuous second derivatives (inside its support).
-
-Its derivative is given by:
-
-```julia
-CardinalCubicSplinePrime([T=Float64,] c, B=Flat) -> ker
-```
-
-```julia
-ker(x) = |x| < 1 ? ((r*|x| - 1)*|x| - 1)*(|x| - 1) :
-         |x| < 2 ? p*(|x| - 1)*(2 - |x|)^2            : 0
-```
-
-with `p = ...` and `r = ...`.
-
-
-## Keys cardinal kernels
-
-Keys kernels are parametric cardinal cubic splines defined by:
-
-```
-ker(x) = p(|x|)   if |x| ≤ 1
-         q(|x|)   if 1 ≤ |x| ≤ 2
-         0        if |x| ≥ 2
-```
-
-with:
-
-```
-p(x) = 1 - (a + 3)*x^2 + (a + 2)*x^3
-q(x) = -4a + 8a*x - 5a*x^2 + a*x^3
-```
-
-These kernels are piecewise normalized cardinal cubic spline which depend on
-one parameter `a` which is the slope of the spline at abscissa 1.
-
-The first derivative of a Keys spline is defined by:
-
-```
-ker′(x) = p′(|x|)*sign(x)   if |x| ≤ 1
-          q′(|x|)*sign(x)   if 1 ≤ |x| ≤ 2
-          0                 if |x| ≥ 2
-```
-
-with:
-
-```
-p'(x) = -2*(a + 3)*x + 3*(a + 2)*x^2
-q'(x) = 8a - 10a*x + 3a*x^2
-```
-
-To create an instance of a Keys spline with parameter `a`, call:
-
-```julia
-ker = KeysSpline([T=Float64,] a, B=Flat)
-```
-
-where optional parameters are the floating-point type `T` and the boundary
-conditions `B`.
-
-The expression `ker'` yields the first derivative of a Keys kernel `ker`.  An
-instance of the first derivative of a Keys kernel can also be directly created
-by:
-
-```julia
-KeysSplinePrime([T=Float64,] a, B=Flat)
-```
-
-Reference:
-
-* Keys, Robert, G., "Cubic Convolution Interpolation for Digital Image
-  Processing", IEEE Trans. Acoustics, Speech, and Signal Processing,
-  Vol. ASSP-29, No. 6, December 1981, pp. 1153-1160.
 
 
 ## Mitchell & Netravali kernels
 
-Mitchell & Netravali kernels are cubic splines which depends on 2 parameters,
-`b` and `c`.  Whatever the values of `(b,c)`, all these kernels are normalized
-and even functions of class C¹ (these kernels and their first derivatives are
-continuous).
+Mitchell & Netravali kernels are piecewise cubic splines defined by:
+
+```
+ker(x) = (1/6)*(((12 - 9b - 6c)*|x| - 18 + 12b + 6c)*x^2 + (6 - 2b))   if |x| ≤ 1
+         (1/6)*(2b + 6c - (b + 6c)*|x|)*(2 - |x|)^2                    if 1 ≤ |x| ≤ 2
+         0                                                             if |x| ≥ 2
+```
+
+Instances of a Mitchell & Netravali kernel and of its derivative are
+respectively created by:
+
+```julia
+MitchellNetravaliSpline{T}(b, c)
+MitchellNetravaliSplinePrime{T}(b, c)
+```
+
+with `T` the floating-point type for computations.  If `T` is omitted but `b`
+and `c` are specified, `T` is deduced from the floating-point type of `b` and
+`c`.  If `b` and `c` are omitted, `(b,c) = (1/3,1/3)` is assumed as recommended
+by Mitchell & Netravali.  If `T` is omitted and `b` and `c` are omitted or both
+integers, `T = Float64` is assumed.
+
+Whatever the values of the parameters `b` and `c`, Mitchell & Netravali kernels
+are normalized and even functions of class C¹ (these kernels and their first
+derivatives are continuous).  The expression `ker'` yields the first derivative
+of a Mitchell & Netravali kernel `ker`.
 
 Taking `b = 0` yields Keys's family of kernels and is a sufficient and
 necessary condition to have Mitchell & Netravali kernels be cardinal functions.
@@ -261,81 +305,24 @@ quadratic order approximation.
 
 Some specific values of `(b,c)` yield other well known kernels:
 
-    (b,c) = (1,0)     ==> cubic B-spline
-    (b,c) = (0,-a)    ==> Keys's cardinal cubics
-    (b,c) = (0,1/2)   ==> Catmull-Rom cubics
-    (b,c) = (b,0)     ==> Duff's tensioned B-spline
-    (b,c) = (1/3,1/3) ==> recommended by Mitchell-Netravali
-
-Mitchell & Netravali kernels are defined by:
-
 ```
-ker(x) = p(|x|)      if |x| ≤ 1
-         q(|x|)      if 1 ≤ |x| ≤ 2
-         0           if |x| ≥ 2
+(b,c) = (1,0)      --> cubic B-spline
+(b,c) = (0,-a)     --> Keys's cardinal cubic spline CardinalCubicSpline(a)
+(b,c) = (0,1/2)    --> Catmull-Rom kernel CatmullRomSpline()
+(b,c) = (b,0)      --> Duff's tensioned B-spline
+(b,c) = (6β,-α-3β) --> generic cubic spline CubicSpline(α,β)
+(b,c) = (1/3,1/3)  --> recommended by Mitchell-Netravali
 ```
 
-with:
-
-```
-p(x) = (p3*x + p2)*x*x + p0
-q(x) = ((q3*x + q2)*x + q1)*x + q0
-```
-
-and:
-
-```
-p0 =  1 - b/3
-p2 = -3 + 2b + c
-p3 =  2 - 3b/2 - c
-q0 =  4b/3 +4*c
-q1 = -2b - 8c
-q2 =  b + 5c
-q3 =  -b/6 - c
-```
-
-The first derivative of a Mitchell & Netravali kernel is given by:
-
-```
-ker'(x) = sign(x)*p'(|x|)      if |x| ≤ 1
-          sign(x)*q'(|x|)      if 1 ≤ |x| ≤ 2
-          0                    if |x| ≥ 2
-```
-
-with:
-
-```
-p'(x) = (dp2*x + dp1)*x
-q'(x) = ((dq3*x + dq2)*x + dq1)*x
-```
-
-```
-dp1 = 2*p2 = -6 + 4b + 2c
-dp2 = 3*p3 =  6 - 9b/2 - 3c
-dq0 =   q1 = -2b - 8c
-dq1 = 2*q2 = 2b + 10c
-dq2 = 3*q3 = -b/2 - 3c
-```
-
-To create an instance of a Mitchell & Netravali kernel, call:
-
+This family of kernels and their derivatives is implemented as instances of
+`CubicSpline` and `CubicSplinePrime` using the following property:
 
 ```julia
-MitchellNetravaliSpline([T=Float64,] [b=1/3, c=1/3,] B=Flat)
+MitchellNetravaliSpline{T}(b, c) = CubicSpline{T}(-b/2 - c, b/6)
 ```
 
-where optional parameters are the floating-point type `T`, the family
-parameters `b` and `c` and the boundary conditions `B`.
 
-The expression `ker'` yields the first derivative of a Mitchell & Netravali
-kernel `ker`.  An instance of the first derivative of a Mitchell & Netravali
-kernel can also be directly created by:
-
-```julia
-MitchellNetravaliSplinePrime([T=Float64,] [b=1/3, c=1/3,] B=Flat) -> ker
-```
-
-Reference:
+### References
 
 * Mitchell & Netravali, "*Reconstruction Filters in Computer Graphics*",
   in Computer Graphics, Vol. 22, Num. 4 (1988)
@@ -347,7 +334,8 @@ Reference:
 The Lanczos re-sampling kernels are defined by:
 
 ```
-ker(x) = (S/2π²)*sin(π*x)*sin(2π*x/S)/x^2
+ker(x) = (S/2π²)*sin(π*x)*sin(2π*x/S)/x^2   if |x| ≤ S/2
+         0                                  if |x| ≥ S/2
 ```
 
 The Lanczos re-sampling kernels are even cardinal functions which tend to be
@@ -358,16 +346,17 @@ To create an instance of a Lanczos re-sampling kernel of support size `S`
 (which must be even), call:
 
 ```julia
-LanczosKernel([T=Float64,] S, B=Flat)
+LanczosKernel{S,T}()
 ```
 
-where optional parameters are the floating-point type `T` and the boundary
-conditions `B`.
+where the floating-point type `T` is assumed to be `Float64` if omitted.
 
 The expression `ker'` yields the first derivative of a Lanczos re-sampling
-kernel `ker`.  An instance of the first derivative of a Lanczos re-sampling
-kernel can also be directly created by:
+kernel `ker`.  An instance of a kernel implementing the first derivative of a
+Lanczos re-sampling kernel can also be directly created by:
 
 ```julia
-LanczosKernelPrime([T=Float64,] S, B=Flat)
+LanczosKernelPrime{S,T}()
 ```
+
+where, again, it is possible to omit the floating-point type parameter `T`.
