@@ -2,26 +2,26 @@ module BenchmarkingInterpolationKernels
 
 using BenchmarkTools, Statistics, Printf
 using InterpolationKernels
-using InterpolationKernels: getweights, getcoefs, brief
+using InterpolationKernels: compute_weights, compute_offset_and_weights, brief
 
-function getcoefs!(y::Array{T,2},
+function compute_offset_and_weights!(y::Array{T,2},
                    ker::Kernel{T,1},
                    x::Array{T,1}) where {T}
     @assert size(y) == (2,length(x))
     @inbounds @simd for i in eachindex(x)
-        off, wgts = getcoefs(ker, x[i])
+        off, wgts = compute_offset_and_weights(ker, x[i])
         y[1,i] = off
         y[2,i] = wgts[1]
     end
     nothing
 end
 
-function getcoefs!(y::Array{T,2},
+function compute_offset_and_weights!(y::Array{T,2},
                    ker::Kernel{T,2},
                    x::Array{T,1}) where {T}
     @assert size(y) == (3,length(x))
     @inbounds @simd for i in eachindex(x)
-        off, wgts = getcoefs(ker, x[i])
+        off, wgts = compute_offset_and_weights(ker, x[i])
         y[1,i] = off
         y[2,i] = wgts[1]
         y[3,i] = wgts[2]
@@ -29,12 +29,12 @@ function getcoefs!(y::Array{T,2},
     nothing
 end
 
-function getcoefs!(y::Array{T,2},
+function compute_offset_and_weights!(y::Array{T,2},
                    ker::Kernel{T,3},
                    x::Array{T,1}) where {T}
     @assert size(y) == (4,length(x))
     @inbounds @simd for i in eachindex(x)
-        off, wgts = getcoefs(ker, x[i])
+        off, wgts = compute_offset_and_weights(ker, x[i])
         y[1,i] = off
         y[2,i] = wgts[1]
         y[3,i] = wgts[2]
@@ -43,12 +43,12 @@ function getcoefs!(y::Array{T,2},
     nothing
 end
 
-function getcoefs!(y::Array{T,2},
+function compute_offset_and_weights!(y::Array{T,2},
                    ker::Kernel{T,4},
                    x::Array{T,1}) where {T}
     @assert size(y) == (5,length(x))
     @inbounds @simd for i in eachindex(x)
-        off, wgts = getcoefs(ker, x[i])
+        off, wgts = compute_offset_and_weights(ker, x[i])
         y[1,i] = off
         y[2,i] = wgts[1]
         y[3,i] = wgts[2]
@@ -75,7 +75,7 @@ for T in (Float32, Float64)
         print(stdout, "\nTests for $(summary(ker)): ")
         flush(stdout)
         y = Array{T}(undef, 1 + length(ker), n)
-        b = @benchmark $(getcoefs!)($y, $ker, $x)
+        b = @benchmark $(compute_offset_and_weights!)($y, $ker, $x)
         t = b.times
         @printf "%.3f Gflops\n" nops/minimum(t)
         @printf "  - memory: %d allocations, %d bytes\n" b.allocs b.memory

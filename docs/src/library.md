@@ -10,8 +10,8 @@ the REPL by typing `?` followed by the name of a method or a type.
 iscardinal
 isnormalized
 InterpolationKernels.brief
-InterpolationKernels.getweights
-InterpolationKernels.getcoefs
+InterpolationKernels.compute_weights
+InterpolationKernels.compute_offset_and_weights
 ```
 
 ## Kernels

@@ -2,7 +2,7 @@
 
 Interpolation kernels, as their name suggest, are designed for interpolating
 arrays.  The `InterpolationKernels` package provides the
-[`InterpolationKernels.getweights`](@ref) method to efficiently compute
+[`InterpolationKernels.compute_weights`](@ref) method to efficiently compute
 interpolation weights for a given kernel and offset.
 
 
@@ -97,7 +97,7 @@ exploiting common sub-expressions.  This facility is provided by the kernels in
 computed by:
 
 ```julia
-w = InterpolationKernels.getweights(ker, t)
+w = InterpolationKernels.compute_weights(ker, t)
 ```
 
 which yields an `S`-tuple `w` of weights with `S` the size of the support of

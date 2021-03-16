@@ -6,8 +6,8 @@ module InterpolationKernelsTests
 using InterpolationKernels
 using InterpolationKernels:
     inf, sup, brief,
-    getweights, generic_getweights,
-    getcoefs, generic_getcoefs
+    compute_weights, generic_compute_weights,
+    compute_offset_and_weights, generic_compute_offset_and_weights
 
 using Test
 
@@ -516,21 +516,21 @@ end
                     @test maximum(abs.(ker([-3,-2,-1,1,2,3]))) ≤ tol
                 end
 
-                # Check getweights.  Compare values computed by optimal,
+                # Check compute_weights.  Compare values computed by optimal,
                 # generic and reference method.
                 k = (length(ker) + 1) >> 1
                 err_gen, err_opt = 0.0, 0.0
                 for t in (0.0, 0.1, 0.2, 0.3, 0.4)
                     wgt_ref = ntuple(i -> ker(t + k - i), length(ker))
-                    wgt_gen = generic_getweights(ker, t)
-                    wgt_opt = getweights(ker, t)
+                    wgt_gen = generic_compute_weights(ker, t)
+                    wgt_opt = compute_weights(ker, t)
                     err_gen = max(err_gen, maximum(abs.(wgt_gen .- wgt_ref)))
                     err_opt = max(err_opt, maximum(abs.(wgt_opt .- wgt_ref)))
                 end
                 @test err_gen ≤ tol
                 @test err_opt ≤ tol
 
-                # Check getcoefs.  Compare values computed by optimal, generic
+                # Check compute_offset_and_weights.  Compare values computed by optimal, generic
                 # and reference method.
                 k = (length(ker) + 1) >> 1
                 off_gen_err, wgt_gen_err = 0.0, 0.0
@@ -546,10 +546,10 @@ end
                         off_ref = floor_x - length(ker)/2
                     end
                     wgt_ref = ntuple(i -> ker(t + k - i), length(ker))
-                    off_gen, wgt_gen = generic_getcoefs(ker, x)
+                    off_gen, wgt_gen = generic_compute_offset_and_weights(ker, x)
                     off_gen_err = max(off_gen_err, abs(off_gen - off_ref))
                     wgt_gen_err = max(wgt_gen_err, maximum(abs.(wgt_gen .- wgt_ref)))
-                    off_opt, wgt_opt = getcoefs(ker, x)
+                    off_opt, wgt_opt = compute_offset_and_weights(ker, x)
                     off_opt_err = max(off_opt_err, abs(off_opt - off_ref))
                     wgt_opt_err = max(wgt_opt_err, maximum(abs.(wgt_opt .- wgt_ref)))
                 end

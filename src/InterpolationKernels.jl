@@ -97,7 +97,7 @@ be built by:
 
 finally:
 
-    getcoefs(ker, x) -> off, (w1, w2, ..., wS)
+    compute_offset_and_weights(ker, x) -> off, (w1, w2, ..., wS)
 
 yields the offset `off` and an `S`-tuple of interpolation weights to
 interpolate an array at coordinate `x` (in fractional index units).
@@ -129,7 +129,7 @@ Cardinal kernels are directly suitable for interpolation.
 """ iscardinal
 
 """
-    getcoefs(ker, x) -> off, wgt
+    compute_offset_and_weights(ker, x) -> off, wgt
 
 yields the index offset `off` and the weights `wgt` to interpolate with kernel
 `ker` at position `x` in fractional index units.  The offset is a scalar and
@@ -140,33 +140,34 @@ as the kernel.
 Not taking into account boundary conditions, interpolating a vector `A` at
 position `x` would then write:
 
-    off, wgt = getcoefs(ker, x)
+    off, wgt = compute_offset_and_weights(ker, x)
     k = Int(off) # here boundary conditions should be imposed
     result = wgt[1]*A[k+1] + ... + wgt[n]*A[k+n]
 
-Note that 1-based indexing is assumed by `getcoefs` to interpret the
-position `x` and compute the offset `off`.  If this is not the case, the code
-should be:
+Note that 1-based indexing is assumed by `compute_offset_and_weights` to
+interpret the position `x` and compute the offset `off`.  If this is not the
+case, the code should be:
 
     j1 = first(axes(A,1)) # first index in A
-    off, wgt = getcoefs(ker, x - (j1 - 1))
+    off, wgt = compute_offset_and_weights(ker, x - (j1 - 1))
     k = Int(off) + (j1 - 1) # here boundary conditions should be imposed
     result = wgt[1]*A[k+1] + ... + wgt[n]*A[k+n]
 
 where expression `x - (j1 - 1)` is assuming that the position `x` is in
 fractional index for `A`, that is `x = j1` at the first entry of `A`.
 
-See [`InterpolationKernels.getweights`](@ref) to only compute the interpolation
-weights.
+See [`InterpolationKernels.compute_weights`](@ref) to only compute the
+interpolation weights.
 
-""" getcoefs
+""" compute_offset_and_weights
 
-@generated function getcoefs(ker::Kernel{T,S}, x::T) where {T,S}
+@generated function compute_offset_and_weights(ker::Kernel{T,S},
+                                               x::T) where {T,S}
     if isodd(S)
         quote
             $(Expr(:meta, :inline))
             round_x = round(x)
-            wgts = getweights(ker, x - round_x)
+            wgts = compute_weights(ker, x - round_x)
             off = round_x - $((S + 1) >> 1)
             return off, wgts
         end
@@ -174,7 +175,7 @@ weights.
         quote
             $(Expr(:meta, :inline))
             floor_x = floor(x)
-            wgts = getweights(ker, x - floor_x)
+            wgts = compute_weights(ker, x - floor_x)
             off = floor_x - $(S >> 1)
             return off, wgts
         end
@@ -182,7 +183,8 @@ weights.
 end
 
 # This generic version is to check code.  It is never automatically called.
-@generated function generic_getcoefs(ker::Kernel{T,S}, x::T) where {T,S}
+@generated function generic_compute_offset_and_weights(ker::Kernel{T,S},
+                                                       x::T) where {T,S}
     wgt = ntuple(i -> Symbol("w_",i), Val(S))
     exprs = [:($(wgt[j]) = ker(u - $j)) for j in 1:S]
     quote
@@ -195,11 +197,12 @@ end
 end
 
 """
-    getweights(ker, t) -> wgt
+    compute_weights(ker, t) -> wgt
 
 computes the interpolation weights returned by
-[`InterpolationKernels.getcoefs`](@ref) for kernel `ker`.  Assuming
-interpolation is performed at at position `x`, argument `t` is given by:
+[`InterpolationKernels.compute_offset_and_weights`](@ref) for kernel `ker`.
+Assuming interpolation is performed at at position `x`, argument `t` is given
+by:
 
      t = x - floor(x)     if length(ker) is even
      t = x - round(x)     if length(ker) is odd
@@ -210,18 +213,18 @@ The returned weights are then:
 
 where `k = (length(ker) + 1) >> 1` (i.e., integer division of `length(ker)+1`
 by 2).  These conventions have been adopted so that, by specializing the
-`getweights` method, computing the `length(ker)` weights at the same time may
-be done in much fewer operations than calling `ker` as a function for each
+`compute_weights` method, computing the `length(ker)` weights at the same time
+may be done in much fewer operations than calling `ker` as a function for each
 weight.
 
-""" getweights
+""" compute_weights
 
 # Call generic version by default.  The generic version has a different name so
 # that it can be used to check optimized versions.  Must be in-lined.
-@inline getweights(ker::Kernel{T}, t::T) where {T} =
-    generic_getweights(ker, t)
+@inline compute_weights(ker::Kernel{T}, t::T) where {T} =
+    generic_compute_weights(ker, t)
 
-@generated function generic_getweights(ker::Kernel{T,S}, t::T) where {T,S}
+@generated function generic_compute_weights(ker::Kernel{T,S}, t::T) where {T,S}
     k = ((S + 1) >> 1)
     exprs = [(j < 0 ? :(ker(t + $(-j))) :
               j > 0 ? :(ker(t - $j)) : :(ker(t))) for j in 1-k:S-k]
@@ -252,9 +255,6 @@ is a, interpolation kernel.  The result does only depend on the kernel type
 """
 inf(ker::Kernel) = inf(typeof(ker))
 inf(::Type{K}) where {T,S,K<:Kernel{T,S}} = sup(K) - S
-
-@inline offset(ker::Union{K,Type{K}}, x::T) where {T,K<:Kernel{T}} =
-    floor(x - sup(ker))
 
 """
     values(ker::InterpolationKernels.Kernel)
@@ -316,12 +316,14 @@ isnormalized(::Union{K,Type{K}}) where {K<:BSplinePrime} = false
 #
 @inline (::BSpline{1,T})(x::T) where {T} =
     ifelse((x < frac(T,-1,2))|(x ≥ frac(T,1,2)), zero(T), one(T))
-getcoefs(::BSpline{1,T}, x::T) where {T} = (round(x) - 1, (one(T),))
-getweights(::BSpline{1,T}, t::T) where {T} = (one(T),)
+compute_offset_and_weights(::BSpline{1,T}, x::T) where {T} =
+    (round(x) - 1, (one(T),))
+compute_weights(::BSpline{1,T}, t::T) where {T} = (one(T),)
 
 (::BSplinePrime{1,T})(x::T) where {T} = zero(T)
-getcoefs(::BSplinePrime{1,T}, x::T) where {T} = (round(x) - 1, (zero(T),))
-getweights(::BSplinePrime{1,T}, t::T) where {T} = (zero(T),)
+compute_offset_and_weights(::BSplinePrime{1,T}, x::T) where {T} =
+    (round(x) - 1, (zero(T),))
+compute_weights(::BSplinePrime{1,T}, t::T) where {T} = (zero(T),)
 
 #
 # Linear B-splines
@@ -332,7 +334,7 @@ getweights(::BSplinePrime{1,T}, t::T) where {T} = (zero(T),)
     return ifelse(abs_x < 1, 1 - abs_x, zero(T))
 end
 
-getweights(ker::BSpline{2,T}, t::T) where {T} = (1 - t, t)
+compute_weights(ker::BSpline{2,T}, t::T) where {T} = (1 - t, t)
 
 # The derivative of the linear B-spline must be non-symmetric for tests to
 # succeed.  In particular we want that interpolating with the derivative of the
@@ -349,7 +351,7 @@ getweights(ker::BSpline{2,T}, t::T) where {T} = (1 - t, t)
     end
 end
 
-getweights(ker::BSplinePrime{2,T}, t::T) where {T} = (-one(T), one(T))
+compute_weights(ker::BSplinePrime{2,T}, t::T) where {T} = (-one(T), one(T))
 
 #
 # Quadratic B-splines
@@ -366,7 +368,7 @@ getweights(ker::BSplinePrime{2,T}, t::T) where {T} = (-one(T), one(T))
     end
 end
 
-@inline function getweights(ker::BSpline{3,T}, t::T) where {T}
+@inline function compute_weights(ker::BSpline{3,T}, t::T) where {T}
     #
     # Given `t = x - round(x)`, the weights are:
     #
@@ -403,7 +405,7 @@ end
     end
 end
 
-@inline function getweights(ker::BSplinePrime{3,T}, t::T) where {T}
+@inline function compute_weights(ker::BSplinePrime{3,T}, t::T) where {T}
     # 3 operations
     h = frac(T,1,2)
     return (t - h, -2t, t + h)
@@ -424,7 +426,7 @@ end
     end
 end
 
-@inline function getweights(ker::BSpline{4,T}, t::T) where {T}
+@inline function compute_weights(ker::BSpline{4,T}, t::T) where {T}
     #
     # With `t = x - floor(x)`, the weights are given by:
     #
@@ -472,7 +474,7 @@ end
     end
 end
 
-@inline function getweights(ker::BSplinePrime{4,T}, t::T) where {T}
+@inline function compute_weights(ker::BSplinePrime{4,T}, t::T) where {T}
     w1 = frac(T,-1,2)*(t - 1)^2
     w2 = frac(T, 3,2)*(t - frac(T,4,3))*t
     w3 = frac(T, 1,2) + (1 - frac(T,3,2)*t)*t
@@ -561,7 +563,7 @@ end
     end
 end
 
-@inline function getweights(ker::CubicSpline{T}, t::T) where {T}
+@inline function compute_weights(ker::CubicSpline{T}, t::T) where {T}
     #
     # With `t = x - floor(x)`, the weights are given by:
     #
@@ -624,7 +626,7 @@ end
     end
 end
 
-@inline function getweights(ker::CubicSplinePrime{T}, t::T) where {T}
+@inline function compute_weights(ker::CubicSplinePrime{T}, t::T) where {T}
     #
     # With `t = x - floor(x)`, the weights are given by:
     #
@@ -713,7 +715,7 @@ end
     end
 end
 
-@inline function getweights(ker::CardinalCubicSpline{T}, t::T) where {T}
+@inline function compute_weights(ker::CardinalCubicSpline{T}, t::T) where {T}
     #
     # Given `t = x - floor(x)`, compute:
     #
@@ -776,7 +778,7 @@ end
     end
 end
 
-# FIXME: optimize getweights for CardinalCubicSplinePrime
+# FIXME: optimize compute_weights for CardinalCubicSplinePrime
 
 # Traits and outer constructors.
 for K in (:CardinalCubicSpline, :CardinalCubicSplinePrime)
@@ -866,7 +868,7 @@ end
     end
 end
 
-@inline function getweights(::CatmullRomSpline{T}, t::T) where {T}
+@inline function compute_weights(::CatmullRomSpline{T}, t::T) where {T}
     # 10 operations:
     u = 1 - t
     v = frac(T,-1,2)*t*u
@@ -878,7 +880,7 @@ end
     return (w1, w2, w3, w4)
 end
 
-@inline function getweights(::CatmullRomSplinePrime{T}, t::T) where {T}
+@inline function compute_weights(::CatmullRomSplinePrime{T}, t::T) where {T}
     #
     # Weights are given by (18 operations):
     #
@@ -1073,7 +1075,7 @@ end
 (ker::LanczosKernelPrime{S,T})(x::T) where {S,T} =
     (abs(x) ≥ ker.a ? zero(T) : x == 0 ? one(T) : _p(ker, x))
 
-@generated function getweights(ker::LanczosKernel{S,T}, t::T) where {S,T}
+@generated function compute_weights(ker::LanczosKernel{S,T}, t::T) where {S,T}
     c = (S >> 1) # central index
     W = [Symbol("w",i) for i in 1:S] # all weights
     Expr(:block,
@@ -1088,7 +1090,8 @@ end
          Expr(:return, Expr(:tuple, W...)))
 end
 
-@generated function getweights(ker::LanczosKernelPrime{S,T}, t::T) where {S,T}
+@generated function compute_weights(ker::LanczosKernelPrime{S,T},
+                                    t::T) where {S,T}
     c = (S >> 1) # central index
     W = [Symbol("w",i) for i in 1:S] # all weights
     Expr(:block,

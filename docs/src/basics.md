@@ -103,8 +103,8 @@ modeled by interpolating the array `A` with the kernel `ker`.
 ## Interpolation weights
 
 Efficient computation of interpolation weights is implemented by the
-[`InterpolationKernels.getcoefs`](@ref)
-[`InterpolationKernels.getweights`](@ref) methods.  These methods are not
+[`InterpolationKernels.compute_offset_and_weights`](@ref)
+[`InterpolationKernels.compute_weights`](@ref) methods.  These methods are not
 exported because they are only required to implement array interpolation, as
 done by the [FineShift](https://github.com/emmt/FineShift.jl) or
 [LinearInterpolators](https://github.com/emmt/LinearInterpolators.jl) packages.

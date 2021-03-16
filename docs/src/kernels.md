@@ -9,9 +9,9 @@ floating-point type):
 | `BSpline{2,T}`               | 2       | yes      |            | [linear B-spline](#Triangular-interpolation-kernel)             |
 | `BSpline{3,T}`               | 3       | no       |            | [quadratic B-spline](#Quadratic-B-spline)                       |
 | `BSpline{4,T}`               | 4       | no       |            | [cubic B-spline](#Cubic-B-spline)                               |
-| `CubicSpline{T}`             | 4       | yes/no   | `a`, `b`   | [cubic spline](#Cubic-splines)                                  |
-| `CardinalCubicSpline{T}`     | 4       | yes      | `a`        | [cardinal cubic spline](#Cardinal-cubic-spline)                 |
-| `CatmullRomSpline{T}`        | 4       | yes      |            | [Catmull-Rom kernel](#Catmull-Rom-kernel)                       |
+| `CubicSpline{T}`             | 4       | yes/no   | `a`, `b`   | [cubic splines](#Cubic-splines)                                 |
+| `CardinalCubicSpline{T}`     | 4       | yes      | `a`        | [cardinal cubic splines](#Cardinal-cubic-splines)               |
+| `CatmullRomSpline{T}`        | 4       | yes      |            | [Catmull & Rom kernel](#Catmull-and-Rom-kernel)                 |
 | `MitchellNetravaliSpline{T}` | 4       | yes/no   | `b`, `c`   | [Mitchell & Netravali kernels](#Mitchell-and-Netravali-kernels) |
 | `LanczosKernel{S,T}`         | `S`     | yes      | `S`        | [Lanczos re-sampling kernels](#Lanczos-re-sampling-kernels)     |
 
@@ -192,9 +192,10 @@ matter, the [`BenchmarkTools`](https://github.com/JuliaCI/BenchmarkTools.jl)
 package may helps you to decide which kernel to choose for a given machine.
 
 
-## Keys cardinal cubic kernels
+## Cardinal cubic splines
 
-Keys kernels are parametric cardinal cubic splines defined by:
+Keys kernels form the family of cardinal cubic splines.  A cardinal cubic
+spline is defined by:
 
 ```
 ker(x) = 1 - (a + 3)*x^2 + (a + 2)*|x|^3      if |x| ≤ 1
@@ -221,10 +222,10 @@ The expression `ker'` yields the first derivative of the cardinal cubic spline
 directly created by:
 
 ```julia
-KeysSplinePrime{T}(a)
+CardinalCubicSplinePrime{T}(a)
 ```
 
-with the same defalut for `T` if this parameter is omitted.
+with the same default for `T` if this parameter is omitted.
 
 ### References
 
@@ -233,7 +234,7 @@ with the same defalut for `T` if this parameter is omitted.
   Vol. ASSP-29, No. 6, December 1981, pp. 1153-1160.
 
 
-## Catmull-Rom kernel
+## Catmull & Rom kernel
 
 The Catmull-Rom kernel is a cardinal piecewise cubic spline defined by:
 
@@ -270,7 +271,8 @@ kerp = CatmullRomSplinePrime{T}()
 
 ## Mitchell & Netravali kernels
 
-Mitchell & Netravali kernels are piecewise cubic splines defined by:
+Mitchell & Netravali kernels are a specific form of the family of cubic
+splines.  These kernels are parametric piecewise cubic splines defined by:
 
 ```
 ker(x) = (1/6)*(((12 - 9b - 6c)*|x| - 18 + 12b + 6c)*x^2 + (6 - 2b))   if |x| ≤ 1
