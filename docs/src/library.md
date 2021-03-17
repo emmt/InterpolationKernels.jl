@@ -4,20 +4,27 @@ The following provides detailled documentation about types and methods provided
 by the `InterpolationKernels` package.  This information is also available from
 the REPL by typing `?` followed by the name of a method or a type.
 
-# Methods
+## Kernel supports
 
 ```@docs
-iscardinal
-isnormalized
-InterpolationKernels.brief
-InterpolationKernels.compute_weights
-InterpolationKernels.compute_offset_and_weights
+InterpolationKernels.Support
+InterpolationKernels.SymmetricSupport
+InterpolationKernels.LeftAnchoredSupport
+InterpolationKernels.RightAnchoredSupport
+InterpolationKernels.infimum
+InterpolationKernels.supremum
 ```
 
-## Kernels
+## Interpolation kernels
 
 ```@docs
 Kernel
+InterpolationKernels.iscardinal
+InterpolationKernels.isnormalized
+InterpolationKernels.support
+InterpolationKernels.brief
+InterpolationKernels.compute_weights
+InterpolationKernels.compute_offset_and_weights
 ```
 
 ### B-splines

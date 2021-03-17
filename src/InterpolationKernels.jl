@@ -32,11 +32,111 @@ export
     isnormalized
 
 import Base: convert, adjoint, values
-# FIXME: unused using Printf
-# FIXME: unused using InteractiveUtils # for subtypes
 
 const FLOATS = (:BigFloat, :Float16, :Float32, :Float64)
 const Floats = @eval $(Expr(:curly, :Union, FLOATS...))
+
+#------------------------------------------------------------------------------
+# SUPPORTS
+
+abstract type Bound end
+struct Open <: Bound end
+struct Closed <: Bound end
+
+"""
+
+`InterpolationKernels.Support{T,S,L,R}` is the abstract type for the support of
+an interpolation kernel parameterized by the floating-point type `T` used for
+computations, the integer size `S` of the support and the types `L` and `R` of
+the left and right bound which can be `InterpolationKernels.Open` or
+`InterpolationKernels.Closed`.
+
+"""
+abstract type Support{T<:AbstractFloat,S,L<:Bound,R<:Bound} end
+
+Base.length(sup::Support) = length(typeof(sup))
+Base.length(::Type{<:Support{T,S}}) where {T,S} = S
+
+Base.eltype(sup::Support) = eltype(typeof(sup))
+Base.eltype(::Type{<:Support{T,S}}) where {T,S} = T
+
+"""
+    InterpolationKernels.SymmetricSupport{T,S,L,R}() -> sup
+
+yields an instance of a symmetric support parameterized by the floating-point
+type `T`, the integer size `S` of the support and the types `L` and `R` of the
+left and right bound which can be `InterpolationKernels.Open` or
+`InterpolationKernels.Closed`.
+
+Depending on `L` and `R`, the support is:
+
+    (L,R) = (Open,Open) -------> sup = (-S/2,S/2)
+    (L,R) = (Closed,Open) -----> sup = [-S/2,S/2)
+    (L,R) = (Open,Closed) -----> sup = (-S/2,S/2]
+    (L,R) = (Closed,Closed) ---> sup = [-S/2,S/2]
+
+"""
+struct SymmetricSupport{T<:AbstractFloat,S,L,R} <: Support{T,S,L,R} end
+
+"""
+    InterpolationKernels.LeftAnchoredSupport{T,S,L,R}(a)
+
+yields an instance of a support with lower bound `a` and parameterized by the
+floating-point type `T`, the integer size `S` of the support and the types `L`
+and `R` of the left and right bound which can be `InterpolationKernels.Open` or
+`InterpolationKernels.Closed`.
+
+Depending on `L` and `R`, the support is:
+
+    (L,R) = (Open,Open) -------> sup = (a,a+S)
+    (L,R) = (Closed,Open) -----> sup = [a,a+S)
+    (L,R) = (Open,Closed) -----> sup = (a,a+S]
+    (L,R) = (Closed,Closed) ---> sup = [a,a+S]
+
+"""
+struct LeftAnchoredSupport{T,S,L,R} <: Support{T,S,L,R}
+    a::T
+end
+
+"""
+    InterpolationKernels.RightAnchoredSupport{T,S,L,R}(a)
+
+yields an instance of a support with upper bound `b` and parameterized by the
+floating-point type `T`, the integer size `S` of the support and the types `L`
+and `R` of the left and right bound which can be `InterpolationKernels.Open` or
+`InterpolationKernels.Closed`.
+
+Depending on `L` and `R`, the support is:
+
+    (L,R) = (Open,Open) -------> sup = (b-S,b)
+    (L,R) = (Closed,Open) -----> sup = [b-S,b)
+    (L,R) = (Open,Closed) -----> sup = (b-S,b]
+    (L,R) = (Closed,Closed) ---> sup = [b-S,b]
+
+"""
+struct RightAnchoredSupport{T,S,L,R} <: Support{T,S,L,R}
+    b::T
+end
+
+"""
+    InterpolationKernels.supremum(sup) -> b
+
+yields the least upper bound `b` of the kernel support `sup`.
+
+"""
+supremum(::SymmetricSupport{T,S}) where {T,S} = T(S)/2
+supremum(sup::LeftAnchoredSupport{T,S}) where {T,S} = T(S)/2 - infimum(sup)
+supremum(sup::RightAnchoredSupport) = sup.b
+
+"""
+    InterpolationKernels.infimum(sup) -> a
+
+yields the greatest lower bound `a` of the kernel support `sup`.
+
+"""
+infimum(::SymmetricSupport{T,S}) where {T,S} = T(-S)/2
+infimum(sup::LeftAnchoredSupport) = sup.a
+infimum(sup::RightAnchoredSupport{T,S}) where {T,S} = supremum(sup) - T(S)/2
 
 #------------------------------------------------------------------------------
 # INTERPOLATION KERNELS
@@ -129,7 +229,7 @@ Cardinal kernels are directly suitable for interpolation.
 """ iscardinal
 
 """
-    compute_offset_and_weights(ker, x) -> off, wgt
+    InterpolationKernels.compute_offset_and_weights(ker, x) -> off, wgt
 
 yields the index offset `off` and the weights `wgt` to interpolate with kernel
 `ker` at position `x` in fractional index units.  The offset is a scalar and
@@ -140,7 +240,7 @@ as the kernel.
 Not taking into account boundary conditions, interpolating a vector `A` at
 position `x` would then write:
 
-    off, wgt = compute_offset_and_weights(ker, x)
+    off, wgt = InterpolationKernels.compute_offset_and_weights(ker, x)
     k = Int(off) # here boundary conditions should be imposed
     result = wgt[1]*A[k+1] + ... + wgt[n]*A[k+n]
 
@@ -149,19 +249,30 @@ interpret the position `x` and compute the offset `off`.  If this is not the
 case, the code should be:
 
     j1 = first(axes(A,1)) # first index in A
-    off, wgt = compute_offset_and_weights(ker, x - (j1 - 1))
+    off, wgt = InterpolationKernels.compute_offset_and_weights(ker, x - (j1 - 1))
     k = Int(off) + (j1 - 1) # here boundary conditions should be imposed
     result = wgt[1]*A[k+1] + ... + wgt[n]*A[k+n]
 
 where expression `x - (j1 - 1)` is assuming that the position `x` is in
 fractional index for `A`, that is `x = j1` at the first entry of `A`.
 
-See [`InterpolationKernels.compute_weights`](@ref) to only compute the
-interpolation weights.
+!!! note
+    For fast computations, this method should be specialized for specific
+    kernel types.  For kernels with symmetric support, the method
+    [`InterpolationKernels.compute_weights`](@ref) is called by
+    `compute_offset_and_weights` to compute the interpolation weights; for such
+    kernels `compute_weights` instead of `compute_offset_and_weights` can be
+    specialized.
 
 """ compute_offset_and_weights
 
-@generated function compute_offset_and_weights(ker::Kernel{T,S},
+@inline compute_offset_and_weights(ker::Kernel{T}, x::T) where {T} =
+    compute_offset_and_weights(support(ker), ker, x)
+
+# The following version is specialized for symmetric supports and rely on an
+# optimized version of `compute_weights`.
+@generated function compute_offset_and_weights(sup::SymmetricSupport{T,S},
+                                               ker::Kernel{T,S},
                                                x::T) where {T,S}
     if isodd(S)
         quote
@@ -182,14 +293,25 @@ interpolation weights.
     end
 end
 
-# This generic version is to check code.  It is never automatically called.
-@generated function generic_compute_offset_and_weights(ker::Kernel{T,S},
+# This version is to call the generic version by default.
+@inline function compute_offset_and_weights(sup::Support{T,S},
+                                            ker::Kernel{T}, x::T) where {T,S}
+    generic_compute_offset_and_weights(sup, ker, x)
+end
+
+# The generic version is only called if no optimized version exists.  It can
+# also be used to check code implementing an optimized version.
+@inline generic_compute_offset_and_weights(ker::Kernel{T}, x::T) where {T} =
+    generic_compute_offset_and_weights(support(ker), ker, x)
+
+@generated function generic_compute_offset_and_weights(sup::Support{T,S},
+                                                       ker::Kernel{T,S},
                                                        x::T) where {T,S}
-    wgt = ntuple(i -> Symbol("w_",i), Val(S))
+    wgt = ntuple(j -> Symbol("w_", j), Val(S))
     exprs = [:($(wgt[j]) = ker(u - $j)) for j in 1:S]
     quote
         $(Expr(:meta, :inline))
-        off = floor(x - sup(ker))
+        off = offset(sup, x)
         u = x - off
         $(exprs...)
         return off, $(Expr(:tuple, wgt...))
@@ -197,12 +319,31 @@ end
 end
 
 """
-    compute_weights(ker, t) -> wgt
+    InterpolationKernels.offset(sup, x) -> off
+
+yields the coordinate offset for computing the interpolation weights
+at coordinate `x` for a kernel whose support is `sup`:
+
+    off = floor(x - b)       if `sup` is right-open
+          ceil(x - b) - 1    if `sup` is left-open
+
+with `b = supremum(sup)` the upper bound of the support.
+
+""" offset
+
+offset(sup::Support{T,S,<:Bound,Open}, x::T) where {T,S} =
+    floor(x - supremum(sup))
+
+offset(sup::Support{T,S,Open,Closed}, x::T) where {T,S} =
+    ceil(x - (supremum(sup) - 1))
+
+"""
+    InterpolationKernels.compute_weights(ker, t) -> wgt
 
 computes the interpolation weights returned by
-[`InterpolationKernels.compute_offset_and_weights`](@ref) for kernel `ker`.
-Assuming interpolation is performed at at position `x`, argument `t` is given
-by:
+[`InterpolationKernels.compute_offset_and_weights`](@ref) for kernel `ker` with
+symmetric support.  Assuming interpolation is performed at at position `x`,
+argument `t` is given by:
 
      t = x - floor(x)     if length(ker) is even
      t = x - round(x)     if length(ker) is odd
@@ -235,28 +376,6 @@ weight.
 end
 
 """
-    InterpolationKernels.sup(ker) -> b
-
-yields the smallest value `b` such `x ≥ b` implies that `ker(x) = 0` where
-`ker` is an interpolation kernel.  The result does only depend on the kernel
-type (i.e., it is known at compile time) and argument `ker` can also be a type.
-
-"""
-sup(ker::Kernel) = sup(typeof(ker))
-sup(::Type{<:Kernel{T,S}}) where {T,S} = T(S)/2
-
-"""
-    InterpolationKernels.inf(ker) -> a
-
-yields the largest value `a` such `x < a` implies that `ker(x) = 0` where `ker`
-is a, interpolation kernel.  The result does only depend on the kernel type
-(i.e., it is known at compile time) and argument `ker` can also be a type.
-
-"""
-inf(ker::Kernel) = inf(typeof(ker))
-inf(::Type{K}) where {T,S,K<:Kernel{T,S}} = sup(K) - S
-
-"""
     values(ker::InterpolationKernels.Kernel)
 
 yields a tuple of the parameters of the interpolation kernel `ker` such that an
@@ -266,6 +385,13 @@ identical instance can be built by:
 
 """
 values(::Kernel) = ()
+
+"""
+    InterpolationKernels.support(ker) -> sup
+
+yields the support of the interpolation kernel `ker`.
+
+""" support
 
 #------------------------------------------------------------------------------
 # B-SPLINES
@@ -277,7 +403,7 @@ yields a B-spline (short for *basis spline*) of order `S` for floating-point
 `T`.  A B-spline of order `S` is a piecewise polynomial function of degree `S -
 1` on a support of length `S`.
 
-Not all B-spline are implemented in `InterpolationKernels`:, `S` must be: `1`
+Not all B-spline are implemented in `InterpolationKernels`, `S` must be: `1`
 (for a **rectangular** B-spline), `2` (for a **linear** B-spline), `3` (for a
 **quadratic** B-spline), or `4` (for a **cubic** B-spline).
 
@@ -299,6 +425,12 @@ struct BSplinePrime{S,T} <: Kernel{T,S} end
 # Outer Constructors.
 BSpline{S}() where {S} = BSpline{S,Float64}()
 BSplinePrime{S}() where {S} = BSplinePrime{S,Float64}()
+
+# Support is right-open for 1st order splines and open for all others.
+support(::BSpline{1,T}) where {T} = SymmetricSupport{T,1,Closed,Open}()
+support(::BSplinePrime{1,T}) where {T} = SymmetricSupport{T,1,Closed,Open}()
+support(::BSpline{S,T}) where {S,T} = SymmetricSupport{T,S,Open,Open}()
+support(::BSplinePrime{S,T}) where {S,T} = SymmetricSupport{T,S,Open,Open}()
 
 # Only the 2 first B-splines are interpolating.
 iscardinal(::Union{K,Type{K}}) where {K<:BSpline{1}} = true
@@ -485,6 +617,15 @@ end
 #------------------------------------------------------------------------------
 # GENERIC CUBIC SPLINE
 
+# Abstract types to implement common traits of cubic splines.
+abstract type AbstractCubicSpline{T} <: Kernel{T,4} end
+abstract type AbstractCubicSplinePrime{T} <: Kernel{T,4} end
+
+support(::AbstractCubicSpline{T}) where {T} =
+    SymmetricSupport{T,4,Open,Open}()
+support(::AbstractCubicSplinePrime{T}) where {T} =
+    SymmetricSupport{T,4,Open,Open}()
+
 """
     CubicSpline{T}(a, b) -> ker
 
@@ -525,7 +666,7 @@ type `T` (`Float64` by default).
 
 """ CubicSplinePrime
 
-struct CubicSpline{T} <: Kernel{T,4}
+struct CubicSpline{T} <: AbstractCubicSpline{T}
     a::T
     b::T
     c0::T
@@ -596,7 +737,7 @@ end
     return (w1, w2, w3, w4)
 end
 
-struct CubicSplinePrime{T} <: Kernel{T,4}
+struct CubicSplinePrime{T} <: AbstractCubicSplinePrime{T}
     a::T
     b::T
     c1::T
@@ -667,6 +808,10 @@ end
 #------------------------------------------------------------------------------
 # KEYS' CARDINAL CUBIC SPLINE
 
+# Abstract types to implement common traits of cardinal cubic splines.
+abstract type AbstractCardinalCubicSpline{T} <: AbstractCubicSpline{T} end
+abstract type AbstractCardinalCubicSplinePrime{T} <: AbstractCubicSplinePrime{T} end
+
 """
     CardinalCubicSpline{T}(a)
 
@@ -693,7 +838,7 @@ Reference:
 
 """ CardinalCubicSpline
 
-struct CardinalCubicSpline{T} <: Kernel{T,4}
+struct CardinalCubicSpline{T} <: AbstractCardinalCubicSpline{T}
     a::T   # a
     ap2::T # a + 2
     ap3::T # a + 3
@@ -758,7 +903,7 @@ parameter `a`.  This derivative is given by:
 
 """ CardinalCubicSplinePrime
 
-struct CardinalCubicSplinePrime{T} <: Kernel{T,4}
+struct CardinalCubicSplinePrime{T} <: AbstractCardinalCubicSplinePrime{T}
     a ::T
     c1::T # 3(a + 2)
     c2::T # 2(a + 3)
@@ -815,6 +960,34 @@ the Catmull-Rom interpolation kernel `ker` (also see the constructor
 
 """ CatmullRomSpline
 
+struct CatmullRomSpline{T} <: AbstractCardinalCubicSpline{T} end
+
+@inline function (::CatmullRomSpline{T})(x::T) where {T}
+    abs_x = abs(x)
+    if abs_x ≥ 2
+        return zero(T)
+    elseif abs_x ≤ 1
+        # (((3/2)*x - (5/2))*x^2 + 1)
+        return ((T(3)/2)*abs_x - T(5)/2)*abs_x*abs_x + 1
+    else
+        # (((5/2) - (1/2)*x)*x - 4)*x + 2
+        # = (2 - x)^2 (1 - x)/2
+        return (2 - abs_x)^2*(1 - abs_x)/2
+    end
+end
+
+@inline function compute_weights(::CatmullRomSpline{T}, t::T) where {T}
+    # 10 operations:
+    u = 1 - t
+    v = frac(T,-1,2)*t*u
+    w1 = v*u
+    w4 = v*t
+    w = w4 - w1
+    w2 = u - w1 + w
+    w3 = t - w4 - w
+    return (w1, w2, w3, w4)
+end
+
 """
     CatmullRomSplinePrime{T}()
 
@@ -830,23 +1003,7 @@ The 1st derivative of the Catmull-Rom interpolation kernel is given by:
 
 """ CatmullRomSplinePrime
 
-struct CatmullRomSpline{T} <: Kernel{T,4} end
-
-struct CatmullRomSplinePrime{T} <: Kernel{T,4} end
-
-@inline function (::CatmullRomSpline{T})(x::T) where {T}
-    abs_x = abs(x)
-    if abs_x ≥ 2
-        return zero(T)
-    elseif abs_x ≤ 1
-        # (((3/2)*x - (5/2))*x^2 + 1)
-        return ((T(3)/2)*abs_x - T(5)/2)*abs_x*abs_x + 1
-    else
-        # (((5/2) - (1/2)*x)*x - 4)*x + 2
-        # = (2 - x)^2 (1 - x)/2
-        return (2 - abs_x)^2*(1 - abs_x)/2
-    end
-end
+struct CatmullRomSplinePrime{T} <: AbstractCardinalCubicSplinePrime{T} end
 
 @inline function (::CatmullRomSplinePrime{T})(x::T) where {T}
     if x < 0
@@ -866,18 +1023,6 @@ end
             return (5 - frac(T,3,2)*x)*x - 4
         end
     end
-end
-
-@inline function compute_weights(::CatmullRomSpline{T}, t::T) where {T}
-    # 10 operations:
-    u = 1 - t
-    v = frac(T,-1,2)*t*u
-    w1 = v*u
-    w4 = v*t
-    w = w4 - w1
-    w2 = u - w1 + w
-    w3 = t - w4 - w
-    return (w1, w2, w3, w4)
 end
 
 @inline function compute_weights(::CatmullRomSplinePrime{T}, t::T) where {T}
@@ -956,6 +1101,8 @@ Reference:
 
 """ MitchellNetravaliSpline
 
+abstract type MitchellNetravaliSpline{T} <: AbstractCubicSpline{T} end
+
 """
     MitchellNetravaliSplinePrime([T=Float64,] [b=1/3, c=1/3,] B=Flat)
 
@@ -965,9 +1112,10 @@ parameters `b` and `c` and boundary conditions `B`.
 
 """ MitchellNetravaliSplinePrime
 
+abstract type MitchellNetravaliSplinePrime{T} <: AbstractCubicSplinePrime{T} end
+
 for K in (:MitchellNetravaliSpline, :MitchellNetravaliSplinePrime)
     @eval begin
-        abstract type $K{T} <: Kernel{T,4} end
         $K() = $K{Float64}()
         $K{T}() where {T<:Floats} = $K{T}(one(T)/3, one(T)/3)
         $K(b::Real, c::Real) = $K{floating_point_type(b, c)}(b, c)
@@ -1040,8 +1188,6 @@ end
 @noinline bad_lanczos_kernel_size() =
     throw(ArgumentError("Lanczos kernel size must be an even integer"))
 
-# FIXME: These constructors are not type stable.
-
 # Outer constructors.
 LanczosKernel{S}(T::Type{<:Floats} = Float64) where {S} =
     LanczosKernel{S,T}()
@@ -1053,6 +1199,9 @@ iscardinal(::Union{K,Type{K}}) where {K<:LanczosKernelPrime} = false
 
 isnormalized(::Union{K,Type{K}}) where {K<:LanczosKernel} = false
 isnormalized(::Union{K,Type{K}}) where {K<:LanczosKernelPrime} = false
+
+support(::LanczosKernel{S,T}) where {S,T} = SymmetricSupport{T,S,Open,Open}()
+support(::LanczosKernelPrime{S,T}) where {S,T} = SymmetricSupport{T,S,Open,Open}()
 
 # Expression for non-zero argument in the range (-S/2,S/2).
 @inline _p(ker::LanczosKernel{S,T}, x::T) where {S,T} =

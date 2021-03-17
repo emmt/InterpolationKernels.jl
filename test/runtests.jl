@@ -5,7 +5,7 @@ module InterpolationKernelsTests
 #include("../src/interp.jl")
 using InterpolationKernels
 using InterpolationKernels:
-    inf, sup, brief,
+    infimum, supremum, support, brief,
     compute_weights, generic_compute_weights,
     compute_offset_and_weights, generic_compute_offset_and_weights
 
@@ -395,7 +395,8 @@ end
                 continue
             end
             s = 0.123 # step chosen so as to avoid integral values of x
-            x = inf(ker)-s:s:sup(ker)+s
+            sup = support(ker)
+            x = infimum(sup)-s:s:supremum(sup)+s
             @test ker.(x) ≈ mdl.(x)
         end
     end
@@ -406,7 +407,8 @@ end
         # Emulation of the cubic B-spline.
         let ker = BSpline{4}(),
             mdl = CubicSpline(-1/2,1/6)
-            x = inf(ker)-s:s:sup(ker)+s
+            sup = support(ker)
+            x = infimum(sup)-s:s:supremum(sup)+s
             @test mdl.(x) ≈ ker.(x)
             @test mdl'.(x) ≈ ker'.(x)
         end
@@ -414,14 +416,16 @@ end
         for a in (-1/3, 0.1, -1/2)
             ker = CardinalCubicSpline(a)
             mdl = CubicSpline(a, 0)
-            x = inf(ker)-s:s:sup(ker)+s
+            sup = support(ker)
+            x = infimum(sup)-s:s:supremum(sup)+s
             @test mdl.(x) ≈ ker.(x)
             @test mdl'.(x) ≈ ker'.(x)
         end
         # Emulation of the Catmull-Rom kernel.
         let ker = CatmullRomSpline(),
             mdl = CubicSpline(-1/2, 0)
-            x = inf(ker)-s:s:sup(ker)+s
+            sup = support(ker)
+            x = infimum(sup)-s:s:supremum(sup)+s
             @test mdl.(x) ≈ ker.(x)
             @test mdl'.(x) ≈ ker'.(x)
         end
@@ -429,7 +433,8 @@ end
         for (b,c) in ((1/3,1/3), (0.1,0.7), (-0.2,0.9))
             let ker = MitchellNetravaliSpline(b, c),
                 mdl = mitchell_netravali_spline(b, c)
-                x = inf(ker)-s:s:sup(ker)+s
+                sup = support(ker)
+                x = infimum(sup)-s:s:supremum(sup)+s
                 @test mdl.(x) ≈ ker.(x)
                 @test mdl'.(x) ≈ ker'.(x)
             end
@@ -515,6 +520,9 @@ end
                     @test ker(0) == 1
                     @test maximum(abs.(ker([-3,-2,-1,1,2,3]))) ≤ tol
                 end
+                sup = support(ker)
+                @test length(sup) == len
+                @test supremum(sup) == infimum(sup) + length(sup)
 
                 # Check compute_weights.  Compare values computed by optimal,
                 # generic and reference method.
@@ -536,6 +544,7 @@ end
                 off_gen_err, wgt_gen_err = 0.0, 0.0
                 off_opt_err, wgt_opt_err = 0.0, 0.0
                 for x in (50.0, -30.9, 8.2, 11.3, -27.6)
+                    # FIXME: These rules are only valid for symmetric kernels.
                     if isodd(length(ker))
                         round_x = round(x)
                         t = x - round_x
@@ -553,9 +562,9 @@ end
                     off_opt_err = max(off_opt_err, abs(off_opt - off_ref))
                     wgt_opt_err = max(wgt_opt_err, maximum(abs.(wgt_opt .- wgt_ref)))
                 end
-                @test off_gen_err ≤ tol
+                @test off_gen_err == 0
                 @test wgt_gen_err ≤ tol
-                @test off_opt_err ≤ tol
+                @test off_opt_err == 0
                 @test wgt_opt_err ≤ tol
             end
         end
@@ -577,7 +586,8 @@ end
             @test ker === primitive_type(der)(values(der)...)
 
             s = 0.123 # step chosen so as to avoid integral values of x
-            x = inf(ker)+s:s:sup(ker)-s
+            sup = support(ker)
+            x = infimum(sup)+s:s:supremum(sup)-s
             @test der.(x) ≈ simple_derivative(ker, x)
 
         end
