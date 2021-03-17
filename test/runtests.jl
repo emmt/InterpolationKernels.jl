@@ -5,9 +5,13 @@ module InterpolationKernelsTests
 #include("../src/interp.jl")
 using InterpolationKernels
 using InterpolationKernels:
+    Bound, Open, Closed, Support,
+    LeftAnchoredSupport, RightAnchoredSupport,
+    signabs, floating_point_type,
     infimum, supremum, support, brief,
     compute_weights, generic_compute_weights,
     compute_offset_and_weights, generic_compute_offset_and_weights
+import InterpolationKernels: support
 
 using Test
 
@@ -267,6 +271,45 @@ kernel_model(ker::CardinalCubicSplinePrime) = keys_spline(eltype(ker), values(ke
 kernel_model(::Kernel) = nothing
 
 #------------------------------------------------------------------------------
+# Types needed to check other supprot than the symmetric ones.
+
+lower_bound_type(sup::Support) = lower_bound_type(typeof(sup))
+lower_bound_type(::Type{<:Support{T,S,L,R}}) where {T,S,L,R} = L
+
+upper_bound_type(sup::Support) = upper_bound_type(typeof(sup))
+upper_bound_type(::Type{<:Support{T,S,L,R}}) where {T,S,L,R} = R
+
+struct LeftAnchoredKernel{T,S,L<:Bound,R<:Bound,K<:Kernel{T,S}} <: Kernel{T,S}
+    a::T
+    ker::K
+end
+
+LeftAnchoredKernel(ker::K) where {T,S,K<:Kernel{T,S}} = begin
+    sup = support(ker)
+    L = lower_bound_type(sup)
+    R = upper_bound_type(sup)
+    return LeftAnchoredKernel{T,S,L,R,K}(infimum(sup), ker)
+end
+
+struct RightAnchoredKernel{T,S,L<:Bound,R<:Bound,K<:Kernel{T,S}} <: Kernel{T,S}
+    b::T
+    ker::K
+end
+
+RightAnchoredKernel(ker::K) where {T,S,K<:Kernel{T,S}} = begin
+    sup = support(ker)
+    L = lower_bound_type(sup)
+    R = upper_bound_type(sup)
+    return RightAnchoredKernel{T,S,L,R,K}(supremum(sup), ker)
+end
+
+support(ker::LeftAnchoredKernel{T,S,L,R}) where {T,S,L,R} =
+    LeftAnchoredSupport{T,S,L,R}(ker.a)
+
+support(ker::RightAnchoredKernel{T,S,L,R}) where {T,S,L,R} =
+    RightAnchoredSupport{T,S,L,R}(ker.b)
+
+#------------------------------------------------------------------------------
 
 raw_type(ker::Kernel) = raw_type(typeof(ker))
 for K in (:BSpline,              :BSplinePrime,
@@ -333,6 +376,20 @@ function simple_derivative(f::Kernel{T},
 end
 
 @testset "Interpolation kernels" begin
+    @testset "Utilities" begin
+        for x in (UInt(3), Int32(-8), -2.1, 0.0f0, 3.7)
+            @test signabs(x) === (sign(x), abs(x))
+            @test floating_point_type(x) === floating_point_type(typeof(x))
+        end
+        io = IOBuffer()
+        ker = LanczosKernel{4,Float32}()
+        show(io, MIME("text/plain"), ker)
+        str1 = take!(io)
+        show(io, ker)
+        str2 = take!(io)
+        @test str1 == str2
+    end
+
     @testset "Constructors" begin
         for S in 1:4
             @test eltype(BSpline{S}()) === Float64
@@ -371,6 +428,7 @@ end
             @test eltype(LanczosKernelPrime{S}()) === Float64
             @test eltype(LanczosKernelPrime{S,Float32}()) === Float32
         end
+        @test_throws ArgumentError LanczosKernel{3}()
     end
 
     @testset "Values" begin
@@ -430,6 +488,8 @@ end
             @test mdl'.(x) ≈ ker'.(x)
         end
         # Emulation of the family of Mitchell & Netravali kernels.
+        @test MitchellNetravaliSpline() === MitchellNetravaliSpline(1/3,1/3)
+        @test MitchellNetravaliSpline{Float32}() === MitchellNetravaliSpline{Float32}(1/3,1/3)
         for (b,c) in ((1/3,1/3), (0.1,0.7), (-0.2,0.9))
             let ker = MitchellNetravaliSpline(b, c),
                 mdl = mitchell_netravali_spline(b, c)
@@ -520,9 +580,14 @@ end
                     @test ker(0) == 1
                     @test maximum(abs.(ker([-3,-2,-1,1,2,3]))) ≤ tol
                 end
-                sup = support(ker)
-                @test length(sup) == len
-                @test supremum(sup) == infimum(sup) + length(sup)
+                for κ in (ker,
+                          RightAnchoredKernel(ker),
+                          LeftAnchoredKernel(ker))
+                    sup = support(κ)
+                    @test eltype(sup) === eltype(κ)
+                    @test length(sup) === length(κ)
+                    @test supremum(sup) == infimum(sup) + length(sup)
+                end
 
                 # Check compute_weights.  Compare values computed by optimal,
                 # generic and reference method.

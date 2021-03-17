@@ -125,7 +125,7 @@ yields the least upper bound `b` of the kernel support `sup`.
 
 """
 supremum(::SymmetricSupport{T,S}) where {T,S} = T(S)/2
-supremum(sup::LeftAnchoredSupport{T,S}) where {T,S} = T(S)/2 - infimum(sup)
+supremum(sup::LeftAnchoredSupport{T,S}) where {T,S} = infimum(sup) + T(S)
 supremum(sup::RightAnchoredSupport) = sup.b
 
 """
@@ -136,7 +136,7 @@ yields the greatest lower bound `a` of the kernel support `sup`.
 """
 infimum(::SymmetricSupport{T,S}) where {T,S} = T(-S)/2
 infimum(sup::LeftAnchoredSupport) = sup.a
-infimum(sup::RightAnchoredSupport{T,S}) where {T,S} = supremum(sup) - T(S)/2
+infimum(sup::RightAnchoredSupport{T,S}) where {T,S} = supremum(sup) - T(S)
 
 #------------------------------------------------------------------------------
 # INTERPOLATION KERNELS
