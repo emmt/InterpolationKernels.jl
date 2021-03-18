@@ -28,8 +28,10 @@ nonnegative, an even and normalized function (its integral is equal to 1).
 
 The **rectangular interpolation kernel** (also known as **box kernel** or
 **Fourier window** or **Dirichlet window**) is the 1st order B-spline equals to
-`1` on `[-1/2,+1/2)`, and `0` elsewhere.  An instance of a rectangular
-interpolation kernel is created by:
+`1` on `[-1/2,+1/2)`, and `0` elsewhere.  Interpolation by a rectangular spline
+amounts to interpolating by the nearest neighbor.
+
+An instance of a rectangular interpolation kernel is created by:
 
 ```julia
 ker = BSpline{1,T}()
