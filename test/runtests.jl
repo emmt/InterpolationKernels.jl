@@ -353,6 +353,10 @@ for (K, Kp) in ((:BSpline,             :BSplinePrime),
     end
 end
 
+is_C¹_continuous(ker::Kernel) = is_C¹_continuous(typeof(ker))
+is_C¹_continuous(::Type{<:Kernel}) = true
+is_C¹_continuous(::Type{<:BSpline{S}}) where {S} = (S ≥ 3)
+
 derivative_type(ker::Kernel) = derivative_type(typeof(ker))
 primitive_type(ker::Kernel) = primitive_type(typeof(ker))
 
@@ -433,9 +437,9 @@ end
 
     @testset "Values" begin
         for ker in (BSpline{1}(),
-                    BSplinePrime{1}(),
+                    BSplinePrime{1}(), # not C¹ continuous, but the model works
                     BSpline{2}(),
-                    #BSplinePrime{2}(), # FIXME:
+                    BSplinePrime{2}(), # not C¹ continuous, but the model works
                     BSpline{3}(),
                     BSplinePrime{3}(),
                     BSpline{4}(),
@@ -522,8 +526,11 @@ end
             @test eltype(ker) === Float64
             @test Kernel(ker) === ker
             @test Kernel{eltype(ker)}(ker) === ker
+            @test convert(Kernel, ker) === ker
+            @test convert(Kernel{eltype(ker)}, ker) === ker
             if has_size_parameter(ker)
                 @test Kernel{eltype(ker),length(ker)}(ker) === ker
+                @test convert(Kernel{eltype(ker),length(ker)}, ker) === ker
             end
             for T in FLOATS
                 if has_size_parameter(ker)
@@ -632,6 +639,10 @@ end
                 @test off_opt_err == 0
                 @test wgt_opt_err ≤ tol
             end
+        end
+        let ker = BSpline{6}()
+            @test isa(brief(ker), String)
+            @test isa(brief(ker'), String)
         end
     end
 

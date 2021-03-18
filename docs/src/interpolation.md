@@ -136,7 +136,7 @@ infimum(sup) ---> a   # the least upper bound of the support `sup`
 supremum(sup) --> b   # the greatest lower bound of the support `sup`
 ```
 
-the offset `off` can be computed by (there two cases to consider):
+the offset `off` can be computed by (there are two cases to consider):
 
 ```
 offset(sup::Support{T,S,<:Bound,Open}, x::T) where {T,S} =

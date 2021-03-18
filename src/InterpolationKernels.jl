@@ -99,7 +99,7 @@ struct LeftAnchoredSupport{T,S,L,R} <: Support{T,S,L,R}
 end
 
 """
-    InterpolationKernels.RightAnchoredSupport{T,S,L,R}(a)
+    InterpolationKernels.RightAnchoredSupport{T,S,L,R}(b)
 
 yields an instance of a support with upper bound `b` and parameterized by the
 floating-point type `T`, the integer size `S` of the support and the types `L`
@@ -260,9 +260,9 @@ fractional index for `A`, that is `x = j1` at the first entry of `A`.
     For fast computations, this method should be specialized for specific
     kernel types.  For kernels with symmetric support, the method
     [`InterpolationKernels.compute_weights`](@ref) is called by
-    `compute_offset_and_weights` to compute the interpolation weights; for such
-    kernels `compute_weights` instead of `compute_offset_and_weights` can be
-    specialized.
+    `compute_offset_and_weights` to calculate the interpolation weights; for
+    such kernels it is sufficient to specialize `compute_weights` instead of
+    `compute_offset_and_weights`.
 
 """ compute_offset_and_weights
 
@@ -345,8 +345,8 @@ computes the interpolation weights returned by
 symmetric support.  Assuming interpolation is performed at at position `x`,
 argument `t` is given by:
 
-     t = x - floor(x)     if length(ker) is even
-     t = x - round(x)     if length(ker) is odd
+     t = x - floor(x)     if length(ker) is even, hence t ∈ [0,1)
+     t = x - round(x)     if length(ker) is odd,  hence t ∈ [-1/2,+1/2]
 
 The returned weights are then:
 
@@ -399,13 +399,23 @@ yields the support of the interpolation kernel `ker`.
 """
     BSpline{S,T}()
 
-yields a B-spline (short for *basis spline*) of order `S` for floating-point
-`T`.  A B-spline of order `S` is a piecewise polynomial function of degree `S -
-1` on a support of length `S`.
+yields a B-spline (short for *basis spline*) of order `S` that is a piecewise
+polynomial function of degree `S - 1` on a support of length `S`.  The
+parameter `T` is the floating-point type for computations, `T = Float64` is
+assuled if this parameter is not specified.
 
-Not all B-spline are implemented in `InterpolationKernels`, `S` must be: `1`
+Fr now, not all B-spline are implemented in `InterpolationKernels`, `S` must be: `1`
 (for a **rectangular** B-spline), `2` (for a **linear** B-spline), `3` (for a
 **quadratic** B-spline), or `4` (for a **cubic** B-spline).
+
+If `ker` is a B-spline, then `ker'` is its derivative which can also be
+directly constructed by calling [`BSplinePrime`](@ref).
+
+!!! warning
+    The derivative of B-spline of order `S ≤ 2` is not defined everywhere.  It
+    is allowed to take their derivative but it (arbitrarily) yields zero where
+    not defined.  Returning `NaN` would have been more correct but it has been
+    considered that it would do more harm than good in practice.
 
 """ BSpline
 
@@ -416,7 +426,8 @@ struct BSpline{S,T} <: Kernel{T,S} end
 
 yields the derivative of a B-spline of order `S` for floating-point `T`.
 
-See [`InterpolationKernels.BSpline`](@ref).
+See the caveats in [`BSpline`](@ref) about taking the derivative of B-splines of
+order `S ≤ 2`.
 
 """ BSplinePrime
 
@@ -468,22 +479,23 @@ end
 
 compute_weights(ker::BSpline{2,T}, t::T) where {T} = (1 - t, t)
 
-# The derivative of the linear B-spline must be non-symmetric for tests to
-# succeed.  In particular we want that interpolating with the derivative of the
-# linear B-spline amounts to taking the finite difference when 0 ≤ t < 1.
-# This implies that f'(x) = 1 for x ∈ [-1,0), f'(x) = -1 for x ∈ [0,1), and
-# f'(x) = 0 elsewhere.
+# The linear B-spline is not C¹ continuous, its left and right derivatives do
+# not match at x ∈ (-1,0,1).  Setting h'(x) = NaN for x ∈ (-1,0,1) is correct
+# but not useful in practice.  Taking the mean of the left and right
+# derivatives yiedls h'(±1) = ∓1/2 and h'(0) = 0 but, then the support would no
+# longer be semi-open interval of size 2.  For now, h'(x) = 0 for x ∈ (-1,0,1).
 @inline function (::BSplinePrime{2,T})(x::T) where {T}
-    if (x < -1)|(x ≥ 1)
-        return zero(T)
-    elseif x < 0
+    if (-1 < x)&(x < 0)
         return one(T)
-    else
+    elseif (0 < x)&(x < 1)
         return -one(T)
+    else
+        return zero(T)
     end
 end
 
-compute_weights(ker::BSplinePrime{2,T}, t::T) where {T} = (-one(T), one(T))
+compute_weights(ker::BSplinePrime{2,T}, t::T) where {T} =
+    ifelse(t > 0, (-one(T), one(T)), (zero(T), zero(T)))
 
 #
 # Quadratic B-splines
@@ -1095,9 +1107,9 @@ the Mitchell & Netravali kernel `ker` (also see the constructor
 
 Reference:
 
-* Mitchell & Netravali, "*Reconstruction Filters in Computer Graphics*",
-  in Computer Graphics, Vol. 22, Num. 4 (1988).
-  http://www.cs.utexas.edu/users/fussell/courses/cs384g/lectures/mitchell/Mitchell.pdf.
+* [Mitchell & Netravali, "*Reconstruction Filters in Computer Graphics*", in
+  Computer Graphics, Vol. 22, Num. 4
+  (1988)](http://www.cs.utexas.edu/users/fussell/courses/cs384g/lectures/mitchell/Mitchell.pdf).
 
 """ MitchellNetravaliSpline
 

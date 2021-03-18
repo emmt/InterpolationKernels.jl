@@ -1,7 +1,9 @@
 
 ## Version 0.2.0
 
-* Kernel type constructors should be type-stable.
+* Kernel support may be non-symmetric.
+
+* Kernel type constructors are type-stable.
 
 * The `values` method can be applied to an interpolation kernel to retrieve its
   parameters.
