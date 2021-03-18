@@ -60,30 +60,61 @@ end
 
 gflops(nops::Real, ns::Real) = (ns, nops/ns)
 
-const n = 1000
-
-
-for T in (Float32, Float64)
-    x = 200*rand(T, n) .- 100;
-    for (ker, nops) in ((BSpline{1,T}(), 2*n),
-                        (BSpline{2,T}(), 3*n),
-                        (BSpline{3,T}(), 9*n),
-                        (BSpline{4,T}(), 17*n),
-                        (CatmullRomSpline{T}(), 13*n),
-                        (CardinalCubicSpline{T}(-1/2), 14*n),
-                        (MitchellNetravaliSpline{T}(1/3,1/3), 18*n),)
-        print(stdout, "\nTests for $(summary(ker)): ")
-        flush(stdout)
-        y = Array{T}(undef, 1 + length(ker), n)
-        b = @benchmark $(compute_offset_and_weights!)($y, $ker, $x)
-        t = b.times
-        @printf "%.3f Gflops\n" nops/minimum(t)
-        @printf "  - memory: %d allocations, %d bytes\n" b.allocs b.memory
-        @printf "  - minimum time: %7.0f ns, %.3f Gflops\n" gflops(nops, minimum(t))...
-        @printf "  - median time:  %7.0f ns, %.3f Gflops\n" gflops(nops, median(t))...
-        @printf "  - mean time:    %7.0f ns, %.3f Gflops\n" gflops(nops, mean(t))...
-        @printf "  - maximum time: %7.0f ns, %.3f Gflops\n" gflops(nops, maximum(t))...
+function runtests(n::Int = 1000; verbose::Bool=false, io::IO=stdout)
+    for T in (Float32, Float64)
+        x = 200*rand(T, n) .- 100;
+        for (ker, nops) in ((BSpline{1,T}(), 2*n),
+                            (BSpline{2,T}(), 3*n),
+                            (BSpline{3,T}(), 9*n),
+                            (BSpline{4,T}(), 17*n),
+                            (CatmullRomSpline{T}(), 13*n),
+                            (CardinalCubicSpline{T}(-1/2), 14*n),
+                            (MitchellNetravaliSpline{T}(1/3,1/3), 18*n),)
+            print(io, "Tests for $(summary(ker)): ")
+            flush(io)
+            y = Array{T}(undef, 1 + length(ker), n)
+            b = @benchmark $(compute_offset_and_weights!)($y, $ker, $x)
+            t = b.times
+            @printf(io, "%.3f Gflops\n", nops/minimum(t))
+            if verbose
+                @printf(io, "  - memory: %d allocations, %d bytes\n", b.allocs, b.memory)
+                @printf(io, "  - minimum time: %7.0f ns, %.3f Gflops\n", gflops(nops, minimum(t))...)
+                @printf(io, "  - median time:  %7.0f ns, %.3f Gflops\n", gflops(nops, median(t))...)
+                @printf(io, "  - mean time:    %7.0f ns, %.3f Gflops\n", gflops(nops, mean(t))...)
+                @printf(io, "  - maximum time: %7.0f ns, %.3f Gflops\n", gflops(nops, maximum(t))...)
+                println(io)
+            end
+        end
     end
 end
 
 end # module
+
+if !isinteractive()
+    let verbose = false,
+        n = 1000
+        i = 0
+        while i < length(ARGS)
+            i += 1
+            arg = ARGS[i]
+            if arg == "-h" || arg == "--help"
+                println("Usage:  julia -O3 $(@__FILE__) [-h|--help] [-v] [--] [NUMBER]")
+                println("Options:  julia -O3 SCRIPT [-h|--help] [-v] [--] [NUMBER]")
+                println("    -h|--help      Print this help.")
+                println("    -v|--verbose   Print detailed results.")
+                println("    NUMBER         Vector size (default: $n")
+                exit()
+            elseif arg == "-v" || arg == "--verbose"
+                verbose = true
+            elseif arg == "--"
+                i += 1
+                break
+            end
+        end
+        if i < length(ARGS)
+            n = parse(Int, ARGS[i+1],base=10)
+        end
+        BenchmarkingInterpolationKernels.runtests(n, verbose=verbose)
+    end
+end
+nothing
