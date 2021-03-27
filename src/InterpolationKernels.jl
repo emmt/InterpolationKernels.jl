@@ -894,7 +894,7 @@ end
     #
     u = 1 - t
     v = ker.a*t*u
-    w = (1 + ker.ap2*u)*t*t # ap2 = a + 2
+    w = (1 + ker.ap2*u)*(t*t) # ap2 = a + 2
     w1 = v*u
     w2 = 1 - w
     w3 = w - v
