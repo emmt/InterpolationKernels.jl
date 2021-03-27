@@ -527,7 +527,7 @@ end
     #     w2 = (3/4) - t^2
     #     w3 = (1/2)*(1/sqrt(2) + t)^2
     #
-    # or in 7 operations:
+    # or in 6 operations:
     #
     ht = t/2
     w = frac(T,1,8) + ht*t
@@ -1104,6 +1104,9 @@ Some specific values of `(b,c)` yield other well known kernels:
 The expression `ker'` yields a kernel instance which is the 1st derivative of
 the Mitchell & Netravali kernel `ker` (also see the constructor
 [`MitchellNetravaliSplinePrime`](@ref)).
+
+Mitchell & Netravali family of kernels are currently instances of
+[`CubicSpline`](@ref).
 
 Reference:
 
