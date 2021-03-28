@@ -1,3 +1,8 @@
+#
+# inline-issue.jl -
+#
+# Demonstrate a reduction of performances with Julia-1.6.0 compared to 1.5.4.
+#
 module InlineIssue
 
 using BenchmarkTools, MayOptimize
@@ -26,6 +31,7 @@ end
     end
 end
 
+# Compute all weights (10 operations).
 function compute_weights(::typeof(spline),
                          t::T) where {T<:AbstractFloat}
     u = 1 - t
@@ -91,6 +97,21 @@ end
     return dst
 end
 
+@inline function inlined_compute_weights2!(opt::Type{<:OptimLevel},
+                                           f::Function,
+                                           dst::Array{T,2},
+                                           src::Array{T,1}) where {T<:AbstractFloat}
+    @assert size(dst) == (4,length(src))
+    @maybe_vectorized opt for i in eachindex(src)
+        w1, w2, w3, w4 = compute_weights(f, src[i])
+        dst[1,i] = w1
+        dst[2,i] = w2
+        dst[3,i] = w3
+        dst[4,i] = w4
+    end
+    return dst
+end
+
 function runtests(; T::Type{<:AbstractFloat}=Float32, n::Int=1_000)
     x = rand(T, n)
     y = Array{T}(undef, n)
@@ -117,14 +138,23 @@ function runtests(; T::Type{<:AbstractFloat}=Float32, n::Int=1_000)
     print(" │   ├─ Debug:    "); @btime $(inlined_compute_weights!)($(Debug), $spline, $z, $t)
     print(" │   ├─ InBounds: "); @btime $(inlined_compute_weights!)($(InBounds), $spline, $z, $t)
     print(" │   └─ Vectorize:"); @btime $(inlined_compute_weights!)($(Vectorize), $spline, $z, $t)
-    print(" └─ Inlined computation of weights with inlined_spline ($n times):\n");
-    print("     ├─ Debug:    "); @btime $(inlined_compute_weights!)($(Debug), $inlined_spline, $z, $t)
-    print("     ├─ InBounds: "); @btime $(inlined_compute_weights!)($(InBounds), $inlined_spline, $z, $t)
-    print("     └─ Vectorize:"); @btime $(inlined_compute_weights!)($(Vectorize), $inlined_spline, $z, $t)
+    print(" ├─ Inlined computation of weights with inlined_spline ($n times):\n");
+    print(" │   ├─ Debug:    "); @btime $(inlined_compute_weights!)($(Debug), $inlined_spline, $z, $t)
+    print(" │   ├─ InBounds: "); @btime $(inlined_compute_weights!)($(InBounds), $inlined_spline, $z, $t)
+    print(" │   └─ Vectorize:"); @btime $(inlined_compute_weights!)($(Vectorize), $inlined_spline, $z, $t)
+    print(" ├─ Inlined computation of weights (2nd version) with spline ($n times):\n");
+    print(" │   ├─ Debug:    "); @btime $(inlined_compute_weights2!)($(Debug), $spline, $z, $t)
+    print(" │   ├─ InBounds: "); @btime $(inlined_compute_weights2!)($(InBounds), $spline, $z, $t)
+    print(" │   └─ Vectorize:"); @btime $(inlined_compute_weights2!)($(Vectorize), $spline, $z, $t)
+    print(" └─ Inlined computation of weights (2nd version) with inlined_spline ($n times):\n");
+    print("     ├─ Debug:    "); @btime $(inlined_compute_weights2!)($(Debug), $inlined_spline, $z, $t)
+    print("     ├─ InBounds: "); @btime $(inlined_compute_weights2!)($(InBounds), $inlined_spline, $z, $t)
+    print("     └─ Vectorize:"); @btime $(inlined_compute_weights2!)($(Vectorize), $inlined_spline, $z, $t)
 
 end
 
 runtests(T=Float32)
+println()
 runtests(T=Float64)
 
 end # module
