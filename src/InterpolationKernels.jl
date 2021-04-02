@@ -33,6 +33,7 @@ export
 
 import Base: convert, adjoint, values
 
+# List and union of floating-point types which are specially handled.
 const FLOATS = (:BigFloat, :Float16, :Float32, :Float64)
 const Floats = @eval $(Expr(:curly, :Union, FLOATS...))
 
@@ -203,7 +204,7 @@ yields the offset `off` and an `S`-tuple of interpolation weights to
 interpolate an array at coordinate `x` (in fractional index units).
 
 """
-abstract type Kernel{T<:Floats,S} <: Function end
+abstract type Kernel{T<:AbstractFloat,S} <: Function end
 
 Base.eltype(ker::Kernel) = eltype(typeof(ker))
 Base.eltype(::Type{<:Kernel{T,S}}) where {T,S} = T
@@ -498,8 +499,8 @@ compute_weights(ker::BSplinePrime{2,T}, t::T) where {T} =
     ifelse(t > 0, (-one(T), one(T)), (zero(T), zero(T)))
 
 #
-# Quadratic B-splines
-# -------------------
+# Quadratic B-spline
+# ------------------
 #
 @inline function (::BSpline{3,T})(x::T) where {T}
     abs_x = abs(x)
@@ -556,8 +557,8 @@ end
 end
 
 #
-# Cubic B-splines
-# ---------------
+# Cubic B-spline
+# --------------
 #
 @inline function (::BSpline{4,T})(x::T) where {T}
     abs_x = abs(x)
@@ -809,7 +810,7 @@ for K in (:CubicSpline, :CubicSplinePrime)
     @eval begin
         $K(a::Real, b::Real) = $K(promote(a, b)...)
         $K(a::Integer, b::Integer) = $K{Float64}(a, b)
-        $K(a::T, b::T) where {T<:Floats} = $K{T}(a, b)
+        $K(a::T, b::T) where {T<:AbstractFloat} = $K{T}(a, b)
         values(ker::$K) = (ker.a, ker.b)
         iscardinal(::Union{K,Type{K}}) where {K<:$K} = false
         isnormalized(::Union{K,Type{K}}) where {K<:$K} =
@@ -941,7 +942,7 @@ end
 for K in (:CardinalCubicSpline, :CardinalCubicSplinePrime)
     @eval begin
         $K(a::Real) = $K{Float64}(a)
-        $K(a::T) where {T<:Floats} = $K{T}(a)
+        $K(a::T) where {T<:AbstractFloat} = $K{T}(a)
         values(ker::$K) = (ker.a,)
         iscardinal(::Union{K,Type{K}}) where {K<:$K} =
             $(K === :CardinalCubicSpline)
@@ -1132,9 +1133,9 @@ abstract type MitchellNetravaliSplinePrime{T} <: AbstractCubicSplinePrime{T} end
 for K in (:MitchellNetravaliSpline, :MitchellNetravaliSplinePrime)
     @eval begin
         $K() = $K{Float64}()
-        $K{T}() where {T<:Floats} = $K{T}(one(T)/3, one(T)/3)
+        $K{T}() where {T<:AbstractFloat} = $K{T}(one(T)/3, one(T)/3)
         $K(b::Real, c::Real) = $K{floating_point_type(b, c)}(b, c)
-        function $K{T}(_b::Real, _c::Real) where {T<:Floats}
+        function $K{T}(_b::Real, _c::Real) where {T<:AbstractFloat}
             b, c = T(_b), T(_c)
             return CubicSpline{T}(-(b/2 + c), b/6)
         end
@@ -1145,7 +1146,7 @@ floating_point_type(x::Real) = floating_point_type(typeof(x))
 floating_point_type(args::Real...) =
     floating_point_type(map(typeof, args)...)
 
-floating_point_type(T::Type{<:Floats}) = T
+floating_point_type(T::Type{<:AbstractFloat}) = T
 floating_point_type(T::Type{<:Real}) = Float64
 floating_point_type(types::Type{<:Real}...) =
     floating_point_type(promote_type(types...))
@@ -1204,9 +1205,9 @@ end
     throw(ArgumentError("Lanczos kernel size must be an even integer"))
 
 # Outer constructors.
-LanczosKernel{S}(T::Type{<:Floats} = Float64) where {S} =
+LanczosKernel{S}(T::Type{<:AbstractFloat} = Float64) where {S} =
     LanczosKernel{S,T}()
-LanczosKernelPrime{S}(T::Type{<:Floats} = Float64) where {S} =
+LanczosKernelPrime{S}(T::Type{<:AbstractFloat} = Float64) where {S} =
     LanczosKernelPrime{S,T}()
 
 iscardinal(::Union{K,Type{K}}) where {K<:LanczosKernel} = true
@@ -1269,7 +1270,7 @@ end
 
 #------------------------------------------------------------------------------
 
-@inline frac(::Type{T}, a::Integer, b::Integer) where {T<:Floats} = (T(a)/T(b))
+@inline frac(::Type{T}, a::Integer, b::Integer) where {T<:AbstractFloat} = (T(a)/T(b))
 @inline square(x) = x*x
 @inline cube(x) = x*x*x
 
@@ -1303,8 +1304,8 @@ yields an instance (resp. a type) of interpolation kernel instance (resp. type)
 `ker` but with floating-point type `T`.
 
 """
-with_eltype(::Type{T}, ::Type{K}) where {T<:Floats,K<:Kernel{T}} = K
-with_eltype(::Type{T}, ker::Kernel{T}) where {T<:Floats} = ker
+with_eltype(::Type{T}, ::Type{K}) where {T<:AbstractFloat,K<:Kernel{T}} = K
+with_eltype(::Type{T}, ker::Kernel{T}) where {T<:AbstractFloat} = ker
 
 # The first instance below is needed to automatically do nothing when
 # converting to a kernel of the same type (remmeber that convert is called to
@@ -1313,8 +1314,8 @@ convert(::Type{K}, ker::K) where {K<:Kernel} = ker
 convert(::Type{K}, ker::Kernel) where {K<:Kernel} = K(ker)
 
 Kernel(ker::Kernel) = ker
-Kernel{T}(ker::Kernel) where {T<:Floats} = with_eltype(T, ker)
-Kernel{T,S}(ker::Kernel{<:Any,S}) where {T<:Floats,S} = with_eltype(T, ker)
+Kernel{T}(ker::Kernel) where {T<:AbstractFloat} = with_eltype(T, ker)
+Kernel{T,S}(ker::Kernel{<:Any,S}) where {T<:AbstractFloat,S} = with_eltype(T, ker)
 
 for T in FLOATS
     @eval Base.$T(ker::Kernel) = with_eltype($T, ker)
@@ -1382,7 +1383,7 @@ for K in (:BSpline,             :BSplinePrime,
     # the floting-point type of the kernel convert the argument.
     # Unfortunately, defining:
     #
-    #     (ker::$K{T})(x::Real) where {T<:Floats} = ker(convert(T,x))
+    #     (ker::$K{T})(x::Real) where {T<:AbstractFloat} = ker(convert(T,x))
     #
     # leads to ambiguities, the following is ugly but works...
     for T in FLOATS, R in (FLOATS..., :Integer)
@@ -1397,27 +1398,27 @@ for K in (:BSpline,             :BSplinePrime,
 
     # Calling the kernel on an array.  FIXME: should be deprecated!
     if has_size
-        @eval (ker::$K{S,T})(A::AbstractArray) where {S,T<:Floats} =
+        @eval (ker::$K{S,T})(A::AbstractArray) where {S,T<:AbstractFloat} =
             map(ker, A)
     else
-        @eval (ker::$K{T})(A::AbstractArray) where {T<:Floats} =
+        @eval (ker::$K{T})(A::AbstractArray) where {T<:AbstractFloat} =
             map(ker, A)
     end
 
     # Change floating-point type.
-    @eval $K{T}(ker::$K) where {T<:Floats} = with_eltype(T, ker)
+    @eval $K{T}(ker::$K) where {T<:AbstractFloat} = with_eltype(T, ker)
     if has_size
         @eval begin
-            $K{S,T}(ker::$K{S}) where {S,T<:Floats} = with_eltype(T, ker)
-            with_eltype(::Type{T}, ::Type{<:$K{S}}) where {S,T<:Floats} = $K{S,T}
-            with_eltype(::Type{T}, ker::$K{S}) where {S,T<:Floats} = $K{S,T}(values(ker)...)
-            with_eltype(::Type{T}, ker::$K{T,S}) where {S,T<:Floats} = ker
+            $K{S,T}(ker::$K{S}) where {S,T<:AbstractFloat} = with_eltype(T, ker)
+            with_eltype(::Type{T}, ::Type{<:$K{S}}) where {S,T<:AbstractFloat} = $K{S,T}
+            with_eltype(::Type{T}, ker::$K{S}) where {S,T<:AbstractFloat} = $K{S,T}(values(ker)...)
+            with_eltype(::Type{T}, ker::$K{T,S}) where {S,T<:AbstractFloat} = ker
         end
     else
         @eval begin
-            with_eltype(::Type{T}, ::Type{<:$K}) where {T<:Floats} = $K{T}
-            with_eltype(::Type{T}, ker::$K{T}) where {T<:Floats} = ker
-            with_eltype(::Type{T}, ker::$K) where {T<:Floats} = $K{T}(values(ker)...)
+            with_eltype(::Type{T}, ::Type{<:$K}) where {T<:AbstractFloat} = $K{T}
+            with_eltype(::Type{T}, ker::$K{T}) where {T<:AbstractFloat} = ker
+            with_eltype(::Type{T}, ker::$K) where {T<:AbstractFloat} = $K{T}(values(ker)...)
         end
     end
 
