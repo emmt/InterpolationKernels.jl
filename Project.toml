@@ -1,7 +1,7 @@
 name = "InterpolationKernels"
 uuid = "16730964-a2ec-11e9-36fa-47a4f82bfac6"
 authors = ["Éric Thiébaut <https://github.com/emmt>"]
-version = "0.2.1"
+version = "0.2.2"
 
 [compat]
 julia = "0.7, 1.0"
