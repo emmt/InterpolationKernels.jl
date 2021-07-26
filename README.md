@@ -34,8 +34,8 @@ The `InterpolationKernels` package is used by:
 [license-url]: ./LICENSE.md
 [license-img]: http://img.shields.io/badge/license-MIT-brightgreen.svg?style=flat
 
-[travis-img]: https://travis-ci.org/emmt/InterpolationKernels.jl.svg?branch=master
-[travis-url]: https://travis-ci.org/emmt/InterpolationKernels.jl
+[travis-img]: https://travis-ci.com/emmt/InterpolationKernels.jl.svg?branch=master
+[travis-url]: https://travis-ci.com/emmt/InterpolationKernels.jl
 
 [appveyor-img]: https://ci.appveyor.com/api/projects/status/github/emmt/InterpolationKernels.jl?branch=master
 [appveyor-url]: https://ci.appveyor.com/project/emmt/InterpolationKernels-jl/branch/master
