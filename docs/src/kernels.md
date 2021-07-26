@@ -328,9 +328,9 @@ MitchellNetravaliSpline{T}(b, c) = CubicSpline{T}(-b/2 - c, b/6)
 
 ### References
 
-* Mitchell & Netravali, "*Reconstruction Filters in Computer Graphics*",
-  in Computer Graphics, Vol. 22, Num. 4 (1988)
-  [pdf](http://www.cs.utexas.edu/users/fussell/courses/cs384g/lectures/mitchell/Mitchell.pdf).
+* Mitchell & Netravali, ["*Reconstruction Filters in Computer
+  Graphics*"](http://www.cs.utexas.edu/users/fussell/courses/cs384g/lectures/mitchell/Mitchell.pdf),
+  in Computer Graphics, Vol. 22, Num. 4 (1988).
 
 
 ## Lanczos re-sampling kernels

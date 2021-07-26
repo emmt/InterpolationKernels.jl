@@ -49,7 +49,7 @@ struct Closed <: Bound end
 `InterpolationKernels.Support{T,S,L,R}` is the abstract type for the support of
 an interpolation kernel parameterized by the floating-point type `T` used for
 computations, the integer size `S` of the support and the types `L` and `R` of
-the left and right bound which can be `InterpolationKernels.Open` or
+the left and right bounds which can be `InterpolationKernels.Open` or
 `InterpolationKernels.Closed`.
 
 """
@@ -66,7 +66,7 @@ Base.eltype(::Type{<:Support{T,S}}) where {T,S} = T
 
 yields an instance of a symmetric support parameterized by the floating-point
 type `T`, the integer size `S` of the support and the types `L` and `R` of the
-left and right bound which can be `InterpolationKernels.Open` or
+left and right bounds which can be `InterpolationKernels.Open` or
 `InterpolationKernels.Closed`.
 
 Depending on `L` and `R`, the support is:
@@ -84,8 +84,8 @@ struct SymmetricSupport{T<:AbstractFloat,S,L,R} <: Support{T,S,L,R} end
 
 yields an instance of a support with lower bound `a` and parameterized by the
 floating-point type `T`, the integer size `S` of the support and the types `L`
-and `R` of the left and right bound which can be `InterpolationKernels.Open` or
-`InterpolationKernels.Closed`.
+and `R` of the left and right bounds which can be `InterpolationKernels.Open`
+or `InterpolationKernels.Closed`.
 
 Depending on `L` and `R`, the support is:
 
@@ -104,8 +104,8 @@ end
 
 yields an instance of a support with upper bound `b` and parameterized by the
 floating-point type `T`, the integer size `S` of the support and the types `L`
-and `R` of the left and right bound which can be `InterpolationKernels.Open` or
-`InterpolationKernels.Closed`.
+and `R` of the left and right bounds which can be `InterpolationKernels.Open`
+or `InterpolationKernels.Closed`.
 
 Depending on `L` and `R`, the support is:
 
@@ -145,10 +145,10 @@ infimum(sup::RightAnchoredSupport{T,S}) where {T,S} = supremum(sup) - T(S)
 """
 # Interpolation Kernels
 
-An interpolation kernel `Kernel{T,S}` is parametrized by the floating-point
+An interpolation kernel `Kernel{T,S}` is parameterized by the floating-point
 type `T` of its coefficients and by the integer size `S` of its support.  For
 efficiency reasons, only kernels with (small) finite size supports are
-implemented.
+implemented in `InterpolationKernels`.
 
 A kernel `ker` is a callable object which may be used as a function with a real
 argument:
@@ -224,7 +224,7 @@ equal to one.
 """
     iscardinal(ker)
 
-yields whether the kernel `ker` is zero for non-zero integer arguments.
+yields whether the kernel `ker` is zero for any non-zero integer argument.
 Cardinal kernels are directly suitable for interpolation.
 
 """ iscardinal
@@ -242,7 +242,7 @@ Not taking into account boundary conditions, interpolating a vector `A` at
 position `x` would then write:
 
     off, wgt = InterpolationKernels.compute_offset_and_weights(ker, x)
-    k = Int(off) # here boundary conditions should be imposed
+    k = Int(off)
     result = wgt[1]*A[k+1] + ... + wgt[n]*A[k+n]
 
 Note that 1-based indexing is assumed by `compute_offset_and_weights` to
@@ -251,7 +251,7 @@ case, the code should be:
 
     j1 = first(axes(A,1)) # first index in A
     off, wgt = InterpolationKernels.compute_offset_and_weights(ker, x - (j1 - 1))
-    k = Int(off) + (j1 - 1) # here boundary conditions should be imposed
+    k = Int(off) + (j1 - 1)
     result = wgt[1]*A[k+1] + ... + wgt[n]*A[k+n]
 
 where expression `x - (j1 - 1)` is assuming that the position `x` is in
@@ -343,7 +343,7 @@ offset(sup::Support{T,S,Open,Closed}, x::T) where {T,S} =
 
 computes the interpolation weights returned by
 [`InterpolationKernels.compute_offset_and_weights`](@ref) for kernel `ker` with
-symmetric support.  Assuming interpolation is performed at at position `x`,
+symmetric support.  Assuming interpolation is performed at position `x`,
 argument `t` is given by:
 
      t = x - floor(x)     if length(ker) is even, hence t ∈ [0,1)
@@ -405,15 +405,15 @@ polynomial function of degree `S - 1` on a support of length `S`.  The
 parameter `T` is the floating-point type for computations, `T = Float64` is
 assuled if this parameter is not specified.
 
-Fr now, not all B-spline are implemented in `InterpolationKernels`, `S` must be: `1`
-(for a **rectangular** B-spline), `2` (for a **linear** B-spline), `3` (for a
-**quadratic** B-spline), or `4` (for a **cubic** B-spline).
+Fr now, not all B-spline are implemented in `InterpolationKernels`, `S` must
+be: `1` (for a **rectangular** B-spline), `2` (for a **linear** B-spline), `3`
+(for a **quadratic** B-spline), or `4` (for a **cubic** B-spline).
 
 If `ker` is a B-spline, then `ker'` is its derivative which can also be
 directly constructed by calling [`BSplinePrime`](@ref).
 
 !!! warning
-    The derivative of B-spline of order `S ≤ 2` is not defined everywhere.  It
+    The derivative of B-splines of order `S ≤ 2` is not defined everywhere.  It
     is allowed to take their derivative but it (arbitrarily) yields zero where
     not defined.  Returning `NaN` would have been more correct but it has been
     considered that it would do more harm than good in practice.
@@ -845,8 +845,8 @@ the Keys kernel `ker` (also see the constructor
 
 Reference:
 
-* Keys, Robert, G., "Cubic Convolution Interpolation for Digital Image
-  Processing", IEEE Trans. Acoustics, Speech, and Signal Processing,
+* Keys, Robert, G., "*Cubic Convolution Interpolation for Digital Image
+  Processing*", IEEE Trans. Acoustics, Speech, and Signal Processing,
   Vol. ASSP-29, No. 6, December 1981, pp. 1153-1160.
 
 """ CardinalCubicSpline

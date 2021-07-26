@@ -1,6 +1,6 @@
 # Basic usage
 
-An interpolation kernel `Kernel{T,S}` is parametrized by the floating-point
+An interpolation kernel `Kernel{T,S}` is parameterized by the floating-point
 type `T` of its coefficients and by the (integer) size `S` of its support.  For
 efficiency reasons, only kernels with (small) finite size supports are
 implemented.  To create a kernel instance, call its constructor; for example:
@@ -11,9 +11,9 @@ ker = LanczosKernel{6}()
 
 yields a Lanczos re-sampling kernel of size 6 (see [Interpolation
 kernels](kernels.md) for an exhaustive list of kernels implemented in
-`InterpolationKernels`) and using floating-point tytpe `Float64` for
-computations.  The same kind of kernel with a specific floating-point type, say
-`T`, is created as:
+`InterpolationKernels`) and using the default floating-point type (that is,
+`Float64`) for computations.  The same kind of kernel with a specific
+floating-point type, say `T`, can be created by:
 
 ```julia
 ker = LanczosKernel{6,T}()
@@ -26,9 +26,7 @@ function with a real argument:
 ker(x::Real)
 ```
 
-yields kernel value at `x`.  In `InterpolationKernels`, all kernel supports are
-symmetric; that is `ker(x)` is zero if `abs(x) > S/2` with `S` the size of the
-kernel support.
+yields kernel value at `x`.
 
 
 ## Basic methods
@@ -38,7 +36,7 @@ Some simple methods are available for any interpolation kernel `ker`:
 - `eltype(ker)` yields the floating-point type `T` for calculations;
 
 - `length(ker)` yields the number `S` of samples in the support of `ker` which
-  is also the number of neighbors involved in an interpolation by this kernel;
+  is also the number of neighbors involved in an interpolation by this kernel.
 
 Since the floating-point type `T` and the support size `S` are parameters of
 the interpolation kernel type, the above methods can also be applied to the
@@ -62,7 +60,7 @@ typeof(ker)(values(ker)...)
 ## Kernel floating-point type
 
 Calling a kernel `ker` with a real argument `x`, as `ker(x)`, always yield a
-floating-point of type `T = eltype(ker)`.  This property has been imposed for
+floating-point of type `T = eltype(ker)`.  This property is imposed for
 efficiency reasons when interpolating arrays.  Calling a kernel `ker` with an
 argument `x` that has a different floating-point type is therefore less
 efficient as it involves converting the value of the real `x`.  It is however
@@ -77,17 +75,35 @@ Kernel{Float32}(ker)
 Float32(ker)
 ```
 
-to use `Float32` floating-point arithmetic with `ker`.
+to use `Float32` floating-point arithmetic.
+
+
+## Kernel support
+
+The call:
+
+```julia
+support(ker)
+```
+
+yields the support of the kernel `ker` (and instance of
+[`InterpolationKernels.Support`](@ref).  All kernels implemented in
+`InterpolationKernels` have symmetric supports; that is, `ker(x)` is zero if
+`abs(x) > S/2` with `S` the size of the kernel support.  `InterpolationKernels`
+however provides the framework for any kind of support (symmetric,
+left-/right-anchored, open, closed, semi-open, ...).  Methods [`infimum`](@ref)
+and [`supremum`](@ref) respectively yield the lower and upper bounds of a
+kernel support.
 
 
 ## Traits
 
-Methods [`iscardinal`](@ref) and [`isnormalized`](@ref) can be used to query
-whether a kernel is a cardinal function (that is a function which yields zero
+Methods [`iscardinal`](@ref) and [`isnormalized`](@ref) respectively yield
+whether a kernel is a cardinal function (that is, a function which yields zero
 for all non-zero integers) and whether a kernel has the partition of unity
 property.  For some parametric kernels, these traits depend on the specific
-values of the parameters so these methods take a kernel instance (not a type)
-as argument.
+values of the parameters, so these methods only take a kernel instance (not a
+type) as argument.
 
 
 ## Derivative
