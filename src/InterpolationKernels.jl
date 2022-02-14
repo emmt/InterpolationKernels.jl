@@ -1238,7 +1238,7 @@ end
     (abs(x) ≥ ker.a ? zero(T) : x == 0 ? one(T) : _p(ker, x))
 
 (ker::LanczosKernelPrime{S,T})(x::T) where {S,T} =
-    (abs(x) ≥ ker.a ? zero(T) : x == 0 ? one(T) : _p(ker, x))
+    (abs(x) ≥ ker.a ? zero(T) : x == 0 ? zero(T) : _p(ker, x))
 
 @generated function compute_weights(ker::LanczosKernel{S,T}, t::T) where {S,T}
     c = (S >> 1) # central index

@@ -666,6 +666,7 @@ end
             x = infimum(sup)+s:s:supremum(sup)-s
             @test der.(x) ≈ simple_derivative(ker, x)
 
+            @test der(0) == 0
         end
     end
 end
