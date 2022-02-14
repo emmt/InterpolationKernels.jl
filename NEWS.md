@@ -1,3 +1,8 @@
+# User-visible changes in the `InterpolationKernels` package
+
+## Version 0.2.5
+
+* Fix bug in derivative of Lanczos' kernels.
 
 ## Version 0.2.0
 
