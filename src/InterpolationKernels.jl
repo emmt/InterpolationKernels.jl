@@ -1181,27 +1181,24 @@ type `T`.
 """ LanczosKernelPrime
 
 struct LanczosKernel{S,T} <: Kernel{T,S}
-    a::T   # 1/2 support
-    b::T   # a/pi^2
-    c::T   # pi/a
     function LanczosKernel{S,T}() where {S,T}
-        (typeof(S) == Int && S > 0 && iseven(S)) || bad_lanczos_kernel_size()
-        a = T(S>>1)
-        new{S,T}(a, a/T(π)^2, T(π)/a)
+        check_lanczos_kernel_size(S)
+        return new{S,T}()
     end
 end
 
 struct LanczosKernelPrime{S,T} <: Kernel{T,S}
-    a::T   # 1/2 support
-    c::T   # pi/a
     function LanczosKernelPrime{S,T}() where {S,T}
-        (typeof(S) == Int && S > 0 && iseven(S)) || bad_lanczos_kernel_size()
-        a = T(S>>1)
-        new{S,T}(a, T(π)/a)
+        check_lanczos_kernel_size(S)
+        return new{S,T}()
     end
 end
 
-@noinline bad_lanczos_kernel_size() =
+check_lanczos_kernel_size(S) = bad_lanczos_kernel_size(S)
+check_lanczos_kernel_size(S::Int) =
+    (S > 0 && iseven(S)) || bad_lanczos_kernel_size(S)
+
+@noinline bad_lanczos_kernel_size(S) =
     throw(ArgumentError("Lanczos kernel size must be an even integer"))
 
 # Outer constructors.
@@ -1219,39 +1216,50 @@ isnormalized(::Union{K,Type{K}}) where {K<:LanczosKernelPrime} = false
 support(::LanczosKernel{S,T}) where {S,T} = SymmetricSupport{T,S,Open,Open}()
 support(::LanczosKernelPrime{S,T}) where {S,T} = SymmetricSupport{T,S,Open,Open}()
 
-# Expression for non-zero argument in the range (-S/2,S/2).
-@inline _p(ker::LanczosKernel{S,T}, x::T) where {S,T} =
-    ker.b*sin(π*x)*sin(ker.c*x)/(x*x)
+(ker::LanczosKernel{S,T})(x::T) where {S,T} = call(ker, convert(T, x))
+(ker::LanczosKernelPrime{S,T})(x::T) where {S,T} = call(ker, convert(T, x))
 
-# Expression for non-zero argument in the range (-S/2,S/2).
-@inline function _p(ker::LanczosKernelPrime{S,T}, x::T) where {S,T}
-    x1 = π*x
-    s1, c1 = sin(x1), cos(x1)
-    r1 = s1/x1
-    x2 = ker.c*x # π*x/a
-    s2, c2 = sin(x2), cos(x2)
-    r2 = s2/x2
-    return (c1*r2 + c2*r1 - 2*r1*r2)/x
+function call(::LanczosKernel{S,T}, x::T) where {S,T<:AbstractFloat}
+    if x == zero(x)
+        return one(T)
+    else
+        a = S>>1
+        if  abs(x) < a
+            π = convert(T, pi)
+            u = π*x
+            v = (π/a)*x
+            return a*sin(u)*sin(v)/u^2
+        else
+            return zero(T)
+        end
+    end
 end
 
-(ker::LanczosKernel{S,T})(x::T) where {S,T} =
-    (abs(x) ≥ ker.a ? zero(T) : x == 0 ? one(T) : _p(ker, x))
+function call(::LanczosKernelPrime{S,T}, x::T) where {S,T<:AbstractFloat}
+    a = S>>1
+    if 0 < abs(x) < a
+        a = S>>1
+        π = convert(T, pi)
+        u = π*x
+        v = (π/a)*x
+        su, cu = sincos(u)
+        sv, cv = sincos(v)
+        return ((π*a)*cu*sv + (π*cv - (2π*a)*sv/u)*su)/u^2
+    else
+        return zero(T)
+    end
+end
 
-(ker::LanczosKernelPrime{S,T})(x::T) where {S,T} =
-    (abs(x) ≥ ker.a ? zero(T) : x == 0 ? zero(T) : _p(ker, x))
-
-@generated function compute_weights(ker::LanczosKernel{S,T}, t::T) where {S,T}
+@generated function compute_weights(ker::LanczosKernel{S,T},
+                                    t::T) where {S,T}
     c = (S >> 1) # central index
     W = [Symbol("w",i) for i in 1:S] # all weights
     Expr(:block,
          Expr(:meta, :inline),
          Expr(:local, [:($w::T) for w in W]...),
-         Expr(:if, :(t == zero(T)),
-              Expr(:block, [:($(W[i]) = $(i == c ? 1 : 0)) for i in 1:S]...),
-              Expr(:block,
-                   [:($(W[i]) = _p(ker, t + $(c - i))) for i in 1:c-1]...,
-                   :($(W[c]) = _p(ker, t)),
-                   [:($(W[i]) = _p(ker, t - $(i - c))) for i in c+1:S]...)),
+         [:($(W[i]) = ker(t + $(c - i))) for i in 1:c-1]...,
+         :($(W[c]) = ker(t)),
+         [:($(W[i]) = ker(t - $(i - c))) for i in c+1:S]...,
          Expr(:return, Expr(:tuple, W...)))
 end
 
@@ -1260,7 +1268,7 @@ end
     c = (S >> 1) # central index
     W = [Symbol("w",i) for i in 1:S] # all weights
     Expr(:block,
-         #Expr(:meta, :inline),
+         Expr(:meta, :inline),
          Expr(:local, [:($w::T) for w in W]...),
          [:($(W[i]) = ker(t + $(c - i))) for i in 1:c-1]...,
          :($(W[c]) = ker(t)),
