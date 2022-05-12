@@ -10,26 +10,26 @@ compute interpolation weights for a given kernel and interpolating position.
 
 To explain how linear interpolation works, let us assume that we want to
 interpolate a source vector `A ∈ 𝕂ⁿ` using the kernel `h: ℝ → ℝ` to produce a
-continuous model function `f(x)` with `x ∈ ℝ` the continuous coordinate.
-Such a model writes:
+model function `f(x)` with `x ∈ ℝ` the continuous coordinate.  Such a model
+writes:
 
 ```
-∀ x ∈ ℝ:    f(x) = sum_{k ∈ ℤ} h(x - k)*ℬ(A,k)
+∀ x ∈ ℝ:    f(x) = sum_{k ∈ ℤ} h(x - k)*ℬ(A,k)                         (1)
 ```
 
 where `sum_{k ∈ ℤ}` denotes a sum over all integers and `ℬ: 𝕂ⁿ×ℤ → 𝕂`
-implements the boundary conditions with `Sup(A)` the set of valid indices for
-`A`.  In Julia code, `Sup(A) = axes(A,1)` and `n = length(A)`.  The above
-equation is a **discrete convolution** of `A` by the kernel `h`.  The model
-function is `f: ℝ → 𝕂` where `𝕂` is the field of the values taken by the
-product in the above sum.  We make no restrictions for the boundary conditions
-except that the following always holds:
+implements the boundary conditions.  The model function is thus `f: ℝ → 𝕂`
+where `𝕂` is the field of the values taken by the product in the above sum.  We
+make no restrictions for the boundary conditions except that the following
+always holds:
 
 ```
-∀ k ∈ Sup(A):    ℬ(A,k) = A[k]
+∀ k ∈ Sup(A):    ℬ(A,k) = A[k]                                         (2)
 ```
 
-For instance, **flat boundaries** are implemented by:
+with `Sup(A) ⊆ ℤ` the set of valid indices for `A`.  In Julia code, `Sup(A) =
+axes(A,1)` and `n = length(A)`.  For example, **flat boundaries** are
+implemented by:
 
 ```
           / A[min(Sup(A))]  if k ≤ min(Sup(A))
@@ -37,10 +37,14 @@ For instance, **flat boundaries** are implemented by:
           \ A[k]            else
 ```
 
+Assuming condition `k ∈ Sup(A)` holds for all non-zero values of `h(x - k)`,
+then `ℬ(A,k) = A[k]` according to Eq. (2) and Eq. (1) can be seen as a
+**discrete convolution** of `A` by the kernel `h`.
+
 Provided the kernel `h` has a finite size support, we can assume (without
 loss of generality) that the kernel support `Sup(h)` is enclosed in a
 right-open interval of nonzero integer width `s ∈ ℕ \ {0}`.  That is, there
-exists `a ∈ ℝ` such that `Sup(h) ⊂ [a,b)` with `b = a + s`.  In other words:
+exists `a ∈ ℝ` such that `Sup(h) ⊆ [a,b)` with `b = a + s`.  In other words:
 
 ```
 x < a   or   x ≥ b    ⟹     h(x) = 0
@@ -56,7 +60,7 @@ k ∈ ℤ, x-k ∈ [a,b)
 
 with `⌊…⌋` the floor function.  Since the objective is to have the smallest
 interval to restrict the number of terms in the discrete convolution, it may be
-better to enclose the kernel support in a left-open interval, that is `Sup(h) ⊂
+better to enclose the kernel support in a left-open interval, that is `Sup(h) ⊆
 (a,b]`, the set of indices `k` such that `h(x-k)` is not certainly zero is then
 given by:
 
@@ -70,30 +74,30 @@ with `⌈…⌉` the ceil function.  To summarize, the discrete convolution in t
 model `f(x)` can be limited to indices `k ∈ ⟦kmin(x),kmax(x)⟧` where:
 
 ```
-kmin(x) = ⌊x-b+1⌋    if Sup(h) ⊂ [a,b)
-          ⌈x-b⌉      if Sup(h) ⊂ (a,b]
+kmin(x) = ⌊x-b+1⌋    if Sup(h) ⊆ [a,b)
+          ⌈x-b⌉      if Sup(h) ⊆ (a,b]
 ```
 
-and `kmax(x) = kmin(x) + s - 1` (either of these above expressions can be
-chosen if `Sup(h) ⊂ (a,b)`).  The interpolation formula can finally be
+and `kmax(x) = kmin(x) + s - 1`.  Either of these above expressions can be
+chosen if `Sup(h) ⊆ (a,b)`.  The interpolation formula can finally be
 rewritten as:
 
 ```
-∀ x ∈ ℝ:    f(x) = sum_{j ∈ jmin:jmax} w_j(x)*ℬ(A, l(x) + j)
+∀ x ∈ ℝ:    f(x) = sum_{j ∈ jmin:jmax} w_j(x)*ℬ(A, ℓ(x) + j)
 ```
 
-where `k = l(x) + j` and `w_j(x) = h(x-k)` for `j ∈ ⟦jmin,jmax⟧` account for
+where `k = ℓ(x) + j` and `w_j(x) = h(x-k)` for `j ∈ ⟦jmin,jmax⟧` account for
 all the non-zero terms of the sum in the original formula.  Hence `jmax =
 jmin+s-1` and:
 
 ```
-  l(x) = kmin(x) - jmin
-w_j(x) = h(x - l(x) - j)
+  ℓ(x) = kmin(x) - jmin
+w_j(x) = h(x - ℓ(x) - j)
 ```
 
 Note that `jmin ∈ ℤ` can be chosen as is the most convenient.  For instance,
-assuming Julia or Fortran indexing, one would choose `jmin = 1` and thus `l(x)
-= ⌊x-b⌋` if `Sup(h) ⊂ [a,b)`.
+assuming Julia or Fortran indexing, one would choose `jmin = 1` and thus `ℓ(x)
+= ⌊x-b⌋` if `Sup(h) ⊆ [a,b)`.
 
 
 ## Methods and structures
@@ -102,22 +106,22 @@ assuming Julia or Fortran indexing, one would choose `jmin = 1` and thus `l(x)
 
 The above developments suggest that, for any interpolation kernel `h` and
 interpolation coordinate `x`, we mostly need a function that yields the
-**offset** `l(x)` and the **interpolation weights** `w_j(x)` for all `j ∈
+**offset** `ℓ(x)` and the **interpolation weights** `w_j(x)` for all `j ∈
 ⟦jmin,jmax⟧`.  This is exactly what is done by the method
-`compute_offset_and_weights` provided by the `InterpolationKernels` package.
-This method is called as:
+[`InterpolationKernels.compute_offset_and_weights`](@ref) provided by the
+`InterpolationKernels` package.  This method is called as:
 
 ```julia
 off, wgt = compute_offset_and_weights(h, x)
 ```
 
-with `h` the interpolation kernel, `x` the coordinate, `off = l(x)` the offset
+with `h` the interpolation kernel, `x` the coordinate, `off = ℓ(x)` the offset
 and `wgt` the `s`-tuple of interpolation weights given by `wgt[j] = w_j(x)`.
 In Julia, the first index of tuples is `1`, so we have `jmin = 1` and thus:
 
 ```
-off = kmin(x) - 1 = ⌊x-b⌋          if Sup(h) ⊂ [a,b)
-                    ⌈x-b⌉ - 1      if Sup(h) ⊂ (a,b]
+off = kmin(x) - 1 = ⌊x-b⌋          if Sup(h) ⊆ [a,b)
+                    ⌈x-b⌉ - 1      if Sup(h) ⊆ (a,b]
 wgt[j] = h(x - off - j)            for j = 1, 2, ..., s
 ```
 
@@ -126,7 +130,7 @@ kernel `h` must be known.  These are the reasons to have interpolation kernels
 in `InterpolationKernels` be defined as smart functions that know their
 support.
 
-Assuming the following methods are available (they are indeed defined in
+Assuming the following methods are available (they are defined in
 `InterpolationKernels` but not exported):
 
 ```julia
@@ -138,14 +142,15 @@ supremum(sup) --> b   # the greatest lower bound of the support `sup`
 
 the offset `off` can be computed by (there are two cases to consider):
 
-```
+```julia
 offset(sup::Support{T,S,<:Bound,Open}, x::T) where {T,S} =
-    floor(x - supremum(sup))       #  if Sup(ker) is ⊂ [a,b)
-offset(sup::Support{T,S,Open,Closed}, x::T) where {T,S} =
-    ceil(x - (supremum(sup) - 1))  #  if Sup(ker) is ⊂ (a,b]
+    floor(x - supremum(sup))      # Sup(ker) ⊆ [a,b)
+offset(sup::Support{T,S,Open,<:Bound}, x::T) where {T,S} =
+    ceil(x - (supremum(sup) - 1)) # Sup(ker) ⊆ (a,b]
 ```
 
-and a generic implementation of `compute_offset_and_weights` is given by:
+and a generic implementation of
+[`InterpolationKernels.compute_offset_and_weights`](@ref) is given by:
 
 ```julia
 compute_offset_and_weights(ker::Kernel{T}, x::T) where {T} =
@@ -158,9 +163,9 @@ function compute_offset_and_weights(sup::Support{T,S},
 end
 ```
 
-Of course `compute_offset_and_weights` is optimized for the most popular
-kernels in order to reduce the number of operations.  But the generic code
-above gives you the ideas.
+Of course [`InterpolationKernels.compute_offset_and_weights`](@ref) is
+optimized for the most popular kernels in order to reduce the number of
+operations.  But the generic code above gives you the ideas.
 
 
 ### Symmetric supports
@@ -186,7 +191,8 @@ off = floor(x) - m      if s is even
       round(x) - m      if s is odd
 ```
 
-These expressions are used by `compute_offset_and_weights` for kernels with
+These expressions are used by
+[`InterpolationKernels.compute_offset_and_weights`](@ref) for kernels with
 symmetric support because they may help reducing the number of operations (at
 least for splines) for computing interpolation weights.  In that case, the
 weights are computed by calling `compute_weights` with the kernel and the
@@ -196,9 +202,10 @@ computed value of `t` (not `x`):
 wgt = compute_weights(k, t)
 ```
 
-When a new kernel is implemented, `compute_offset_and_weights` or, if the
-kernel has a symmetric support, `compute_weights` may be specialized to
-optimize computations.
+When a new kernel is implemented,
+[`InterpolationKernels.compute_offset_and_weights`](@ref) or, if the kernel has
+a symmetric support, `compute_weights` may be specialized to optimize
+computations.
 
 
 
@@ -220,19 +227,19 @@ formula) yields:
 
 ```
 C[i] = f(i - r)
-     = sum_{j ∈ 1:s} h(i - r - l(i - r) - j)*ℬ(A, l(i - r) + j)
+     = sum_{j ∈ 1:s} h(i - r - ℓ(i - r) - j)*ℬ(A, ℓ(i - r) + j)
 ```
 
-From the definition of the offset `l(x)` it is obvious that:
+From the definition of the offset `ℓ(x)` it is obvious that:
 
 ```
-∀ (r,i) ∈ ℝ×ℤ:    l(i - r) = i + l(-r) = i - k
+∀ (r,i) ∈ ℝ×ℤ:    ℓ(i - r) = i + ℓ(-r) = i - k
 ```
 
 with:
 
 ```
-k = -l(-r)
+k = -ℓ(-r)
 ```
 
 Hence the interpolation writes:
