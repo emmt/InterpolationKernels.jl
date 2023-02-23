@@ -1,5 +1,11 @@
 # User-visible changes in the `InterpolationKernels` package
 
+## Version 0.2.6
+
+* Update doc.
+
+* Disable TravisCI, enable GitHub CI and TagBot via GitHub Actions.
+
 ## Version 0.2.5
 
 * Fix bug in derivative of Lanczos' kernels.
