@@ -2,7 +2,7 @@
 
 | **Documentation**               | **License**                     | **Build Status**                                                | **Code Coverage**                                                   |
 |:--------------------------------|:--------------------------------|:----------------------------------------------------------------|:--------------------------------------------------------------------|
-| [![][doc-dev-img]][doc-dev-url] | [![][license-img]][license-url] | [![][travis-img]][travis-url] [![][appveyor-img]][appveyor-url] | [![][coveralls-img]][coveralls-url] [![][codecov-img]][codecov-url] |
+| [![][doc-dev-img]][doc-dev-url] | [![][license-img]][license-url] | [![][github-ci-img]][github-ci-url] [![][appveyor-img]][appveyor-url] | [![][coveralls-img]][coveralls-url] [![][codecov-img]][codecov-url] |
 
 The `InterpolationKernels` package provides a library of interpolation kernels
 for [Julia](https://julialang.org/).  As suggested by their name,
@@ -34,8 +34,8 @@ The `InterpolationKernels` package is used by:
 [license-url]: ./LICENSE.md
 [license-img]: http://img.shields.io/badge/license-MIT-brightgreen.svg?style=flat
 
-[travis-img]: https://travis-ci.com/emmt/InterpolationKernels.jl.svg?branch=master
-[travis-url]: https://travis-ci.com/emmt/InterpolationKernels.jl
+[github-ci-img]: https://github.com/emmt/InterpolationKernels.jl/actions/workflows/CI.yml/badge.svg?branch=master
+[github-ci-url]: https://github.com/emmt/InterpolationKernels.jl/actions/workflows/CI.yml?query=branch%3Amaster
 
 [appveyor-img]: https://ci.appveyor.com/api/projects/status/github/emmt/InterpolationKernels.jl?branch=master
 [appveyor-url]: https://ci.appveyor.com/project/emmt/InterpolationKernels-jl/branch/master
