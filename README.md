@@ -2,7 +2,7 @@
 
 | **Documentation**               | **License**                     | **Build Status**                                                | **Code Coverage**                                                   |
 |:--------------------------------|:--------------------------------|:----------------------------------------------------------------|:--------------------------------------------------------------------|
-| [![][doc-dev-img]][doc-dev-url] | [![][license-img]][license-url] | [![][github-ci-img]][github-ci-url] [![][appveyor-img]][appveyor-url] | [![][coveralls-img]][coveralls-url] [![][codecov-img]][codecov-url] |
+| [![][doc-dev-img]][doc-dev-url] | [![][license-img]][license-url] | [![][github-ci-img]][github-ci-url] [![][appveyor-img]][appveyor-url] | [[![][codecov-img]][codecov-url] |
 
 The `InterpolationKernels` package provides a library of interpolation kernels
 for [Julia](https://julialang.org/).  As suggested by their name,
