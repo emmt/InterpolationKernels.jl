@@ -19,7 +19,7 @@ In this table, the *Cardinal* column indicates whether a kernel `ker(x)` is a
 cardinal function, that is `ker(k) = 0` for all integers `k` except that
 `ker(0) = 1` which makes such a kernel directly suitable for interpolation.
 
-A *spline* is defined as a piecewise polynomial of given degree.  A *B-spline*
+A *spline* is defined as a piecewise polynomial of given degree. A *B-spline*
 of order `S` is a piecesiwe polynomial of degree `S - 1` which is everywhere
 nonnegative, an even and normalized function (its integral is equal to 1).
 
@@ -28,7 +28,7 @@ nonnegative, an even and normalized function (its integral is equal to 1).
 
 The **rectangular interpolation kernel** (also known as **box kernel** or
 **Fourier window** or **Dirichlet window**) is the 1st order B-spline equals to
-`1` on `[-1/2,+1/2)`, and `0` elsewhere.  Interpolation by a rectangular spline
+`1` on `[-1/2,+1/2)`, and `0` elsewhere. Interpolation by a rectangular spline
 amounts to interpolating by the nearest neighbor.
 
 An instance of a rectangular interpolation kernel is created by:
@@ -39,7 +39,7 @@ ker = BSpline{1,T}()
 
 where the floating-point type `T` is assumed to be `Float64` if omitted.
 
-The expression `ker'` yields the first derivative of the kernel `ker`.  An
+The expression `ker'` yields the first derivative of the kernel `ker`. An
 instance of a kernel implementing the first derivative of a rectangular
 interpolation kernel may be directly created by:
 
@@ -47,7 +47,7 @@ interpolation kernel may be directly created by:
  BSplinePrime{1,T}()
 ```
 
-where, again, the floating-point type parameter `T` my be omitted.
+where `T` is assumed to be `Float64` if omitted.
 
 
 ## Triangular interpolation kernel
@@ -69,7 +69,7 @@ ker = BSpline{2,T}()
 
 where the floating-point type `T` is assumed to be `Float64` if omitted.
 
-The expression `ker'` yields the first derivative of the kernel `ker`.  An
+The expression `ker'` yields the first derivative of the kernel `ker`. An
 instance of a kernel implementing the first derivative of a triangular
 interpolation kernel may be directly created by:
 
@@ -77,7 +77,7 @@ interpolation kernel may be directly created by:
  BSplinePrime{2,T}()
 ```
 
-where, again, the floating-point type parameter `T` my be omitted.
+where `T` is assumed to be `Float64` if omitted.
 
 
 ## Quadratic B-spline
@@ -98,7 +98,7 @@ BSpline{3,T}()
 
 where the floating-point type `T` is assumed to be `Float64` if omitted.
 
-The expression `ker'` yields the first derivative of the kernel `ker`.  An
+The expression `ker'` yields the first derivative of the kernel `ker`. An
 instance of a kernel implementing the first derivative of a quadratic B-spline
 may be directly created by:
 
@@ -106,7 +106,7 @@ may be directly created by:
  BSplinePrime{3,T}()
 ```
 
-where, again, the floating-point type parameter `T` my be omitted.
+where `T` is assumed to be `Float64` if omitted.
 
 
 ## Cubic B-spline
@@ -120,7 +120,7 @@ ker(x) = (|x|/2 - 1)*|x|^2 + 2/3     if |x| ≤ 1
          0                           if |x| ≥ 2
 ```
 
-An of a cubic B-spline is created by:
+An instance of a cubic B-spline is created by:
 
 ```julia
 BSpline{4,T}()
@@ -129,20 +129,20 @@ BSpline{4,T}()
 where the floating-point type `T` is assumed to be `Float64` if omitted.
 
 The cubic B-spline is a C² continuous function (its derivatives up to the
-second one are everywhere continuous).  The expression `ker'` yields the first
-derivative of the kernel `ker`.  An instance of a kernel implementing the first
+second one are everywhere continuous). The expression `ker'` yields the first
+derivative of the kernel `ker`. An instance of a kernel implementing the first
 derivative of a cubic B-spline may be directly created by:
 
 ```julia
  BSplinePrime{4,T}()
 ```
 
-where, again, the floating-point type parameter `T` my be omitted.
+where `T` is assumed to be `Float64` if omitted.
 
 
 ## Cubic splines
 
-An instance of the familily of cubic spline kernels is created by:
+An instance of the family of cubic spline kernels is created by:
 
 ```julia
 ker = CubicSpline{T}(a, b)
@@ -157,13 +157,13 @@ ker(x) = ((2 + a - 6b)*|x| +  (9b - a - 3))*x^2 + (1 - 2b)  if |x| ≤ 1
 ```
 
 The parameters `a = ker'(1)` and `b = ker(1)` are the slope and the value of
-the function `ker(x)` at `x = 1`.  The type parameter `T` is the floating-point
+the function `ker(x)` at `x = 1`. The type parameter `T` is the floating-point
 type for computations `T`, it may be omitted in which case it is guessed from
 the types of `a` and `b` as `T = float(promote(typeof(a), typeof(b)))`.
 
 A cubic spline kernel is at least C¹ continuous, the expression `ker'` yields a
 kernel instance implementing the 1st derivative of the generic cubic spline
-`ker`.  Such a derivative may be directly built by calling:
+`ker`. Such a derivative may be directly built by calling:
 
 ```julia
 CubicSplinePrime{T}(a, b)
@@ -187,17 +187,17 @@ spline kernels can be emulated:
 Calling [`BSpline`](@ref), [`CatmullRomSpline`](@ref),
 [`CardinalCubicSpline`](@ref), or [`MitchellNetravaliSpline`](@ref) to build
 these more specialized cubic splines may yield more efficient kernels as
-computations involve more simple expressions.  Instances of `CubicSpline` are
+computations involve more simple expressions. Instances of `CubicSpline` are
 however very well optimized and, in practice, they may be as fast or even
-faster than their more specialized counterparts.  If ultimate performances
+faster than their more specialized counterparts. If ultimate performances
 matter, the [`BenchmarkTools`](https://github.com/JuliaCI/BenchmarkTools.jl)
 package may helps you to decide which kernel to choose for a given machine.
 
 
 ## Cardinal cubic splines
 
-Keys kernels form the family of cardinal cubic splines.  A cardinal cubic
-spline is defined by:
+Keys kernels form the family of cardinal cubic splines. A cardinal cubic spline
+is defined by:
 
 ```
 ker(x) = 1 - (a + 3)*x^2 + (a + 2)*|x|^3      if |x| ≤ 1
@@ -215,12 +215,12 @@ To create an instance of a cardinal cubic spline with parameter `a`, call:
 ker = CardinalCubicSpline{T}(a)
 ```
 
-where `T` is the floating-point type for computations.  If omitted, `T` is
+where `T` is the floating-point type for computations. If omitted, `T` is
 `typeof(a)` if it is `Float16`, `Float32`, `Float64`, or `BigFloat` and
 `Float64` otherwise.
 
 The expression `ker'` yields the first derivative of the cardinal cubic spline
-`ker`.  An instance of the first derivative of such a kernel can also be
+`ker`. An instance of the first derivative of such a kernel can also be
 directly created by:
 
 ```julia
@@ -232,8 +232,8 @@ with the same default for `T` if this parameter is omitted.
 ### References
 
 * Keys, Robert, G., "*Cubic Convolution Interpolation for Digital Image
-  Processing*", IEEE Trans. Acoustics, Speech, and Signal Processing,
-  Vol. ASSP-29, No. 6, December 1981, pp. 1153-1160.
+  Processing*", IEEE Trans. Acoustics, Speech, and Signal Processing, Vol.
+  ASSP-29, No. 6, December 1981, pp. 1153-1160.
 
 
 ## Catmull & Rom kernel
@@ -247,7 +247,7 @@ ker(x) = ((3/2)*|x| - (5/2))*x^2 + 1             if |x| ≤ 1
 ```
 
 Being a cardinal function, the Catmull-Rom kernel is suitable for
-interpolation.  Its derivative is given by:
+interpolation. Its derivative is given by:
 
 ```
 ker′(x) = ((9/2)*|x| - 5)*x                      if a = |x| ≤ 1
@@ -261,7 +261,7 @@ To create an instance of a Catmull-Rom interpolation kernel, call
 ker = CatmullRomSpline{T}()
 ```
 
-where the floating-point type `T` is assumed to be `Float64` if omitted.  To
+where the floating-point type `T` is assumed to be `Float64` if omitted. To
 create an instance of the derivative of a Catmull-Rom interpolation kernel,
 call one of:
 
@@ -274,7 +274,7 @@ kerp = CatmullRomSplinePrime{T}()
 ## Mitchell & Netravali kernels
 
 Mitchell & Netravali kernels are a specific form of the family of cubic
-splines.  These kernels are parametric piecewise cubic splines defined by:
+splines. These kernels are parametric piecewise cubic splines defined by:
 
 ```
 ker(x) = (1/6)*(((12 - 9b - 6c)*|x| - 18 + 12b + 6c)*x^2 + (6 - 2b))   if |x| ≤ 1
@@ -290,15 +290,15 @@ MitchellNetravaliSpline{T}(b, c)
 MitchellNetravaliSplinePrime{T}(b, c)
 ```
 
-with `T` the floating-point type for computations.  If `T` is omitted but `b`
+with `T` the floating-point type for computations. If `T` is omitted but `b`
 and `c` are specified, `T` is deduced from the floating-point type of `b` and
-`c`.  If `b` and `c` are omitted, `(b,c) = (1/3,1/3)` is assumed as recommended
-by Mitchell & Netravali.  If `T` is omitted and `b` and `c` are omitted or both
+`c`. If `b` and `c` are omitted, `(b,c) = (1/3,1/3)` is assumed as recommended
+by Mitchell & Netravali. If `T` is omitted and `b` and `c` are omitted or both
 integers, `T = Float64` is assumed.
 
 Whatever the values of the parameters `b` and `c`, Mitchell & Netravali kernels
 are normalized and even functions of class C¹ (these kernels and their first
-derivatives are continuous).  The expression `ker'` yields the first derivative
+derivatives are continuous). The expression `ker'` yields the first derivative
 of a Mitchell & Netravali kernel `ker`.
 
 Taking `b = 0` yields Keys's family of kernels and is a sufficient and
@@ -356,11 +356,11 @@ LanczosKernel{S,T}()
 where the floating-point type `T` is assumed to be `Float64` if omitted.
 
 The expression `ker'` yields the first derivative of a Lanczos re-sampling
-kernel `ker`.  An instance of a kernel implementing the first derivative of a
+kernel `ker`. An instance of a kernel implementing the first derivative of a
 Lanczos re-sampling kernel can also be directly created by:
 
 ```julia
 LanczosKernelPrime{S,T}()
 ```
 
-where, again, it is possible to omit the floating-point type parameter `T`.
+where `T` is assumed to be `Float64` if omitted.
