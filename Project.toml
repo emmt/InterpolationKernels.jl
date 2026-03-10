@@ -4,6 +4,7 @@ authors = ["Éric Thiébaut <https://github.com/emmt>"]
 version = "0.2.6"
 
 [compat]
+Test = "<0.0.1, 1"
 julia = "0.7, 1.0"
 
 [extras]
