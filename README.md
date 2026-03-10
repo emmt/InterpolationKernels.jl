@@ -15,7 +15,6 @@ documentation](https://emmt.github.io/InterpolationKernels.jl/dev/):
 
 - [List of provided kernels](https://emmt.github.io/InterpolationKernels.jl/dev/kernels/).
 - [Principles of interpolation](https://emmt.github.io/InterpolationKernels.jl/dev/interpolation/).
-- [Instructions for installation](https://emmt.github.io/InterpolationKernels.jl/dev/install/).
 
 The `InterpolationKernels` package is used by:
 

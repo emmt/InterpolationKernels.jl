@@ -2,7 +2,6 @@ SOURCES = \
     make.jl \
     src/basics.md \
     src/index.md \
-    src/install.md \
     src/interpolation.md \
     src/kernels.md \
     src/library.md

@@ -87,13 +87,14 @@ support(ker)
 ```
 
 yields the support of the kernel `ker` (and instance of
-[`InterpolationKernels.Support`](@ref).  All kernels implemented in
+[`InterpolationKernels.Support`](@ref). All kernels implemented in
 `InterpolationKernels` have symmetric supports; that is, `ker(x)` is zero if
-`abs(x) > S/2` with `S` the size of the kernel support.  `InterpolationKernels`
+`abs(x) > S/2` with `S` the size of the kernel support. `InterpolationKernels`
 however provides the framework for any kind of support (symmetric,
-left-/right-anchored, open, closed, semi-open, ...).  Methods [`infimum`](@ref)
-and [`supremum`](@ref) respectively yield the lower and upper bounds of a
-kernel support.
+left-/right-anchored, open, closed, semi-open, ...). Methods
+[`InterpolationKernels.infimum`](@ref) and
+[`InterpolationKernels.supremum`](@ref) respectively yield the lower and upper
+bounds of a kernel support.
 
 
 ## Traits

@@ -1,5 +1,6 @@
 [deps]
 Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
+InterpolationKernels = "16730964-a2ec-11e9-36fa-47a4f82bfac6"
 
 [compat]
 Documenter = "0.24"
