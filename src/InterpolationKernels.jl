@@ -31,7 +31,6 @@ export
     iscardinal,
     isnormalized
 
-import Base: convert, adjoint, values
 
 # List and union of floating-point types which are specially handled.
 const FLOATS = (:BigFloat, :Float16, :Float32, :Float64)
@@ -385,7 +384,7 @@ identical instance can be built by:
     typeof(ker)(values(ker)...)
 
 """
-values(::Kernel) = ()
+Base.values(::Kernel) = ()
 
 """
     InterpolationKernels.support(ker) -> sup
@@ -811,7 +810,7 @@ for K in (:CubicSpline, :CubicSplinePrime)
         $K(a::Real, b::Real) = $K(promote(a, b)...)
         $K(a::Integer, b::Integer) = $K{Float64}(a, b)
         $K(a::T, b::T) where {T<:AbstractFloat} = $K{T}(a, b)
-        values(ker::$K) = (ker.a, ker.b)
+        Base.values(ker::$K) = (ker.a, ker.b)
         iscardinal(::Union{K,Type{K}}) where {K<:$K} = false
         isnormalized(::Union{K,Type{K}}) where {K<:$K} =
             $(K === :CubicSpline)
@@ -943,7 +942,7 @@ for K in (:CardinalCubicSpline, :CardinalCubicSplinePrime)
     @eval begin
         $K(a::Real) = $K{Float64}(a)
         $K(a::T) where {T<:AbstractFloat} = $K{T}(a)
-        values(ker::$K) = (ker.a,)
+        Base.values(ker::$K) = (ker.a,)
         iscardinal(::Union{K,Type{K}}) where {K<:$K} =
             $(K === :CardinalCubicSpline)
         isnormalized(::Union{K,Type{K}}) where {K<:$K} =
@@ -1316,10 +1315,10 @@ with_eltype(::Type{T}, ::Type{K}) where {T<:AbstractFloat,K<:Kernel{T}} = K
 with_eltype(::Type{T}, ker::Kernel{T}) where {T<:AbstractFloat} = ker
 
 # The first instance below is needed to automatically do nothing when
-# converting to a kernel of the same type (remmeber that convert is called to
-# instanciate structure fields).
-convert(::Type{K}, ker::K) where {K<:Kernel} = ker
-convert(::Type{K}, ker::Kernel) where {K<:Kernel} = K(ker)
+# converting to a kernel of the same type (remember that convert is called to
+# instantiate structure fields).
+Base.convert(::Type{K}, ker::K) where {K<:Kernel} = ker
+Base.convert(::Type{K}, ker::Kernel) where {K<:Kernel} = K(ker)
 
 Kernel(ker::Kernel) = ker
 Kernel{T}(ker::Kernel) where {T<:AbstractFloat} = with_eltype(T, ker)
@@ -1371,11 +1370,11 @@ brief(::Type{<:CatmullRomSplinePrime}) =
 
 # Manage to yield the derivative of (some) kernels when the notation `ker'` is
 # used.
-adjoint(ker::BSpline{S,T}) where {S,T} = BSplinePrime{S,T}()
-adjoint(ker::CubicSpline{T}) where {T} = CubicSplinePrime{T}(ker.a, ker.b)
-adjoint(ker::CardinalCubicSpline{T}) where {T} = CardinalCubicSplinePrime{T}(ker.a)
-adjoint(ker::CatmullRomSpline{T}) where {T} = CatmullRomSplinePrime{T}()
-adjoint(ker::LanczosKernel{S,T}) where {S,T} = LanczosKernelPrime{S,T}()
+Base.adjoint(ker::BSpline{S,T}) where {S,T} = BSplinePrime{S,T}()
+Base.adjoint(ker::CubicSpline{T}) where {T} = CubicSplinePrime{T}(ker.a, ker.b)
+Base.adjoint(ker::CardinalCubicSpline{T}) where {T} = CardinalCubicSplinePrime{T}(ker.a)
+Base.adjoint(ker::CatmullRomSpline{T}) where {T} = CatmullRomSplinePrime{T}()
+Base.adjoint(ker::LanczosKernel{S,T}) where {S,T} = LanczosKernelPrime{S,T}()
 
 # Provide methods for all kernels.
 for K in (:BSpline,             :BSplinePrime,
@@ -1388,7 +1387,7 @@ for K in (:BSpline,             :BSplinePrime,
         K === :LanczosKernel || K === :LanczosKernelPrime)
 
     # We want that calling the kernel on a different type of real argument than
-    # the floting-point type of the kernel convert the argument.
+    # the floating-point type of the kernel convert the argument.
     # Unfortunately, defining:
     #
     #     (ker::$K{T})(x::Real) where {T<:AbstractFloat} = ker(convert(T,x))
