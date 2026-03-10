@@ -13,7 +13,7 @@ using InterpolationKernels:
     compute_offset_and_weights, generic_compute_offset_and_weights
 import InterpolationKernels: support
 
-using Test
+using Aqua, Test
 
 shortname(::Nothing) = ""
 shortname(m::RegexMatch) = m.captures[1]
@@ -669,5 +669,7 @@ end
         end
     end
 end
+
+Aqua.test_all(InterpolationKernels)
 
 end # module

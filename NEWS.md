@@ -8,6 +8,8 @@
 
 - Declare `public` symbols that are not exported but public.
 
+- Tests with [`Aqua.jl`](https://github.com/JuliaTesting/Aqua.jl).
+
 
 ## Version 0.2.6
 

@@ -4,6 +4,8 @@
 [![Build Status](https://github.com/emmt/InterpolationKernels.jl/actions/workflows/CI.yml/badge.svg?branch=master)](https://github.com/emmt/InterpolationKernels.jl/actions/workflows/CI.yml?query=branch%3Amaster)
 [![Build Status](https://ci.appveyor.com/api/projects/status/github/emmt/InterpolationKernels.jl?branch=master)](https://ci.appveyor.com/project/emmt/InterpolationKernels-jl/branch/master)
 [![Coverage](https://codecov.io/github/emmt/InterpolationKernels.jl/graph/badge.svg?token=ygyMUzFwXb)](https://codecov.io/github/emmt/InterpolationKernels.jl)
+[![Aqua QA](https://raw.githubusercontent.com/JuliaTesting/Aqua.jl/master/badge.svg)](https://github.com/JuliaTesting/Aqua.jl)
+
 The `InterpolationKernels` package provides a library of interpolation kernels
 for [Julia](https://julialang.org/).  As suggested by their name,
 interpolations kernels are mostly designed for interpolation, they can be
