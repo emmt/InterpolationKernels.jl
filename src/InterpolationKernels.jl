@@ -1156,15 +1156,6 @@ for K in (:MitchellNetravaliSpline, :MitchellNetravaliSplinePrime)
     end
 end
 
-floating_point_type(x::Real) = floating_point_type(typeof(x))
-floating_point_type(args::Real...) =
-    floating_point_type(map(typeof, args)...)
-
-floating_point_type(T::Type{<:AbstractFloat}) = T
-floating_point_type(T::Type{<:Real}) = Float64
-floating_point_type(types::Type{<:Real}...) =
-    floating_point_type(promote_type(types...))
-
 #------------------------------------------------------------------------------
 # LANCZOS RESAMPLING KERNEL
 

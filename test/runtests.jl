@@ -7,7 +7,7 @@ using InterpolationKernels
 using InterpolationKernels:
     Bound, Open, Closed, Support,
     LeftAnchoredSupport, RightAnchoredSupport,
-    signabs, floating_point_type,
+    signabs,
     infimum, supremum, support, brief,
     compute_weights, generic_compute_weights,
     compute_offset_and_weights, generic_compute_offset_and_weights
@@ -383,7 +383,6 @@ end
     @testset "Utilities" begin
         for x in (UInt(3), Int32(-8), -2.1, 0.0f0, 3.7)
             @test signabs(x) === (sign(x), abs(x))
-            @test floating_point_type(x) === floating_point_type(typeof(x))
         end
         io = IOBuffer()
         ker = LanczosKernel{4,Float32}()
