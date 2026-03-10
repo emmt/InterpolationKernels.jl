@@ -1,5 +1,14 @@
 # User-visible changes in the `InterpolationKernels` package
 
+## Unreleased
+
+### Added
+
+- Use [`TypeUtils`](https://github.com/emmt/TypeUtils.jl).
+
+- Declare `public` symbols that are not exported but public.
+
+
 ## Version 0.2.6
 
 * Update doc.
@@ -27,7 +36,7 @@
   instance of `IO` as first parameter.  The floating-point type is part of the
   textual representation written by the `show` method.
 
-* Method `getweights` renamed as `compute_weights` and no longer exported.  New
+* Method `getweights` renamed as `compute_weights` are no longer exported.  New
   method `compute_offset_and_weights` that eventually calls `compute_weights`
   to compute the interpolation weights in a carefully optimized way.
 

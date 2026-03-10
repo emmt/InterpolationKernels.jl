@@ -31,6 +31,21 @@ export
     iscardinal,
     isnormalized
 
+using TypeUtils
+using TypeUtils: @public
+
+@public(
+    LeftAnchoredSupport,
+    RightAnchoredSupport,
+    Support,
+    SymmetricSupport,
+    compute_offset_and_weights,
+    compute_weights,
+    infimum,
+    offset,
+    support,
+    supremum,
+)
 
 # List and union of floating-point types which are specially handled.
 const FLOATS = (:BigFloat, :Float16, :Float32, :Float64)
