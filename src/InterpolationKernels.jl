@@ -1,15 +1,14 @@
 #
 # InterpolationKernels.jl --
 #
-# Kernel functions used for linear filtering, windowing or linear
-# interpolation.
+# Kernel functions used for linear filtering, windowing or linear interpolation.
 #
-#------------------------------------------------------------------------------
+#-------------------------------------------------------------------------------------------
 #
-# This file is part of the InterpolationKernels package licensed under the MIT
-# "Expat" License.
+# This file is part of the InterpolationKernels package licensed under the MIT "Expat"
+# License.
 #
-# Copyright (C) 2016-2021, Éric Thiébaut.
+# Copyright (C) 2016-2025, Éric Thiébaut.
 #
 
 module InterpolationKernels
@@ -56,19 +55,18 @@ using TypeUtils: @public, Precision
 const FLOATS = (:BigFloat, :Float16, :Float32, :Float64)
 const Floats = @eval $(Expr(:curly, :Union, FLOATS...))
 
-#------------------------------------------------------------------------------
-# SUPPORTS
+#-------------------------------------------------------------------------------- Supports -
 
 abstract type Bound end
 struct Open <: Bound end
 struct Closed <: Bound end
 
 """
+    InterpolationKernels.Support{T,S,L,R}
 
-`InterpolationKernels.Support{T,S,L,R}` is the abstract type for the support of
-an interpolation kernel parameterized by the floating-point type `T` used for
-computations, the integer size `S` of the support and the types `L` and `R` of
-the left and right bounds which can be `InterpolationKernels.Open` or
+Abstract type for the support of an interpolation kernel parameterized by the floating-point
+type `T` used for computations, the integer size `S` of the support and the types `L` and
+`R` of the left and right bounds which can be `InterpolationKernels.Open` or
 `InterpolationKernels.Closed`.
 
 """
@@ -83,10 +81,9 @@ Base.eltype(::Type{<:Support{T,S}}) where {T,S} = T
 """
     InterpolationKernels.SymmetricSupport{T,S,L,R}() -> sup
 
-yields an instance of a symmetric support parameterized by the floating-point
-type `T`, the integer size `S` of the support and the types `L` and `R` of the
-left and right bounds which can be `InterpolationKernels.Open` or
-`InterpolationKernels.Closed`.
+Return an instance of a symmetric support parameterized by the floating-point type `T`, the
+integer size `S` of the support and the types `L` and `R` of the left and right bounds which
+can be `InterpolationKernels.Open` or `InterpolationKernels.Closed`.
 
 Depending on `L` and `R`, the support is:
 
@@ -101,10 +98,9 @@ struct SymmetricSupport{T<:AbstractFloat,S,L,R} <: Support{T,S,L,R} end
 """
     InterpolationKernels.LeftAnchoredSupport{T,S,L,R}(a)
 
-yields an instance of a support with lower bound `a` and parameterized by the
-floating-point type `T`, the integer size `S` of the support and the types `L`
-and `R` of the left and right bounds which can be `InterpolationKernels.Open`
-or `InterpolationKernels.Closed`.
+Return an instance of a support with lower bound `a` and parameterized by the floating-point
+type `T`, the integer size `S` of the support and the types `L` and `R` of the left and
+right bounds which can be `InterpolationKernels.Open` or `InterpolationKernels.Closed`.
 
 Depending on `L` and `R`, the support is:
 
@@ -121,10 +117,9 @@ end
 """
     InterpolationKernels.RightAnchoredSupport{T,S,L,R}(b)
 
-yields an instance of a support with upper bound `b` and parameterized by the
-floating-point type `T`, the integer size `S` of the support and the types `L`
-and `R` of the left and right bounds which can be `InterpolationKernels.Open`
-or `InterpolationKernels.Closed`.
+Return an instance of a support with upper bound `b` and parameterized by the floating-point
+type `T`, the integer size `S` of the support and the types `L` and `R` of the left and
+right bounds which can be `InterpolationKernels.Open` or `InterpolationKernels.Closed`.
 
 Depending on `L` and `R`, the support is:
 
@@ -141,7 +136,7 @@ end
 """
     InterpolationKernels.supremum(sup) -> b
 
-yields the least upper bound `b` of the kernel support `sup`.
+Return the least upper bound `b` of the kernel support `sup`.
 
 """
 supremum(::SymmetricSupport{T,S}) where {T,S} = T(S)/2
@@ -151,52 +146,48 @@ supremum(sup::RightAnchoredSupport) = sup.b
 """
     InterpolationKernels.infimum(sup) -> a
 
-yields the greatest lower bound `a` of the kernel support `sup`.
+Return the greatest lower bound `a` of the kernel support `sup`.
 
 """
 infimum(::SymmetricSupport{T,S}) where {T,S} = T(-S)/2
 infimum(sup::LeftAnchoredSupport) = sup.a
 infimum(sup::RightAnchoredSupport{T,S}) where {T,S} = supremum(sup) - T(S)
 
-#------------------------------------------------------------------------------
-# INTERPOLATION KERNELS
+#------------------------------------------------------------------- Interpolation kernels -
 
 """
-# Interpolation Kernels
+    Kernel{T,S}
 
-An interpolation kernel `Kernel{T,S}` is parameterized by the floating-point
-type `T` of its coefficients and by the integer size `S` of its support.  For
-efficiency reasons, only kernels with (small) finite size supports are
-implemented in `InterpolationKernels`.
+Abstract super-type of interpolation kernels parameterized by the floating-point type `T` of
+their coefficients and by the integer size `S` of their support. For efficiency reasons,
+only kernels with (small) finite size supports are implemented in `InterpolationKernels`.
 
-A kernel `ker` is a callable object which may be used as a function with a real
-argument:
+A kernel `ker` is a callable object which may be used as a function with a real argument:
 
     ker(x::Real)
 
-yields kernel value at offset `x`.  Whatever the type of `x`, `ker(x)` is
-always of type `T = eltype(ker)` the floating-point type associated with `ker`.
-All kernel supports are symmetric; that is `ker(x)` is zero if `abs(x) > S/2`
-with `S = length(ker)` the size of the kernel support.
+yields kernel value at offset `x`. Whatever the type of `x`, `ker(x)` is always of type `T =
+eltype(ker)` the floating-point type associated with `ker`. All kernel supports are
+symmetric; that is `ker(x)` is zero if `abs(x) > S/2` with `S = length(ker)` the size of the
+kernel support.
 
 
-## Kernel floating-point type conversion
+# Kernel floating-point type conversion
 
-Called as a function with a real argument, a given kernel returns a value of
-its associated floating-point type.  This has been chosen to have fast
-interpolation methods.  Converting a kernel `ker` to use floating-point type
-`T` is simply done by one of:
+Called as a function with a real argument, a given kernel returns a value of its associated
+floating-point type. This has been chosen to have fast interpolation methods. Converting a
+kernel `ker` to use floating-point type `T` is simply done by one of:
 
     T(ker)
     Kernel{T}(ker)
     convert(Kernel{T}, ker)
     adapt_precision(T, ker)
 
-Beware that changing the floating-point type may lead to a loss of precision if
-the kernel has numerical parameters.
+Beware that changing the floating-point type may lead to a loss of precision if the kernel
+has numerical parameters.
 
 
-## Common methods
+# Common methods
 
 A few common methods are specialized for any interpolation kernel `ker`:
 
@@ -206,13 +197,12 @@ yields the floating-point type for calculations,
 
     length(ker) -> S
 
-yield the size the support of `ker` which is also the number of neighbors
-involved in an interpolation by this kernel,
+yield the size the support of `ker` which is also the number of neighbors involved in an
+interpolation by this kernel,
 
     values(ker)
 
-yields a tuple of the parameters of `ker` such that an identical instance can
-be built by:
+yields a tuple of the parameters of `ker` such that an identical instance can be built by:
 
     typeof(ker)(values(ker)...)
 
@@ -220,8 +210,8 @@ finally:
 
     compute_offset_and_weights(ker, x) -> off, (w1, w2, ..., wS)
 
-yields the offset `off` and an `S`-tuple of interpolation weights to
-interpolate an array at coordinate `x` (in fractional index units).
+yields the offset `off` and an `S`-tuple of interpolation weights to interpolate an array at
+coordinate `x` (in fractional index units).
 
 """
 abstract type Kernel{T<:AbstractFloat,S} <: Function end
@@ -233,65 +223,61 @@ Base.length(ker::Kernel) = length(typeof(ker))
 Base.length(::Type{<:Kernel{T,S}}) where {T,S} = S
 
 """
-    isnormalized(ker)
+    isnormalized(ker) -> bool
 
-yields whether the kernel `ker` has the partition of unity property.  That is,
-the sum of the values computed by the kernel `ker` on a unit spaced grid is
-equal to one.
+Return whether the kernel `ker` has the partition of unity property. That is, the sum of the
+values computed by the kernel `ker` on a unit spaced grid is equal to one.
 
 """ isnormalized
 
 """
-    iscardinal(ker)
+    iscardinal(ker) -> bool
 
-yields whether the kernel `ker` is zero for any non-zero integer argument.
-Cardinal kernels are directly suitable for interpolation.
+Return whether the kernel `ker` is zero for any non-zero integer argument. Cardinal kernels
+are directly suitable for interpolation.
 
 """ iscardinal
 
 """
     InterpolationKernels.compute_offset_and_weights(ker, x) -> off, wgt
 
-yields the index offset `off` and the weights `wgt` to interpolate with kernel
-`ker` at position `x` in fractional index units.  The offset is a scalar and
-the weights are an `n`-tuple with `n = length(ker)` the size of the support of
-the kernel, all returned values have the same floating point type `eltype(ker)`
-as the kernel.
+Return the index offset `off` and the weights `wgt` to interpolate with kernel `ker` at
+position `x` in fractional index units. The offset is a scalar and the weights are an
+`n`-tuple with `n = length(ker)` the size of the support of the kernel, all returned values
+have the same floating point type `eltype(ker)` as the kernel.
 
-Not taking into account boundary conditions, interpolating a vector `A` at
-position `x` would then write:
+Not taking into account boundary conditions, interpolating a vector `A` at position `x`
+would then write:
 
     off, wgt = InterpolationKernels.compute_offset_and_weights(ker, x)
     k = Int(off)
     result = wgt[1]*A[k+1] + ... + wgt[n]*A[k+n]
 
-Note that 1-based indexing is assumed by `compute_offset_and_weights` to
-interpret the position `x` and compute the offset `off`.  If this is not the
-case, the code should be:
+Note that 1-based indexing is assumed by `compute_offset_and_weights` to interpret the
+position `x` and compute the offset `off`. If this is not the case, the code should be:
 
     j1 = first(axes(A,1)) # first index in A
     off, wgt = InterpolationKernels.compute_offset_and_weights(ker, x - (j1 - 1))
     k = Int(off) + (j1 - 1)
     result = wgt[1]*A[k+1] + ... + wgt[n]*A[k+n]
 
-where expression `x - (j1 - 1)` is assuming that the position `x` is in
-fractional index for `A`, that is `x = j1` at the first entry of `A`.
+where expression `x - (j1 - 1)` is assuming that the position `x` is in fractional index for
+`A`, that is `x = j1` at the first entry of `A`.
 
 !!! note
-    For fast computations, this method should be specialized for specific
-    kernel types.  For kernels with symmetric support, the method
-    [`InterpolationKernels.compute_weights`](@ref) is called by
-    `compute_offset_and_weights` to calculate the interpolation weights; for
-    such kernels it is sufficient to specialize `compute_weights` instead of
-    `compute_offset_and_weights`.
+    For fast computations, this method should be specialized for specific kernel types. For
+    kernels with symmetric support, the method
+    [`InterpolationKernels.compute_weights`](@ref) is called by `compute_offset_and_weights`
+    to calculate the interpolation weights; for such kernels it is sufficient to specialize
+    `compute_weights` instead of `compute_offset_and_weights`.
 
 """ compute_offset_and_weights
 
 @inline compute_offset_and_weights(ker::Kernel{T}, x::T) where {T} =
     compute_offset_and_weights(support(ker), ker, x)
 
-# The following version is specialized for symmetric supports and rely on an
-# optimized version of `compute_weights`.
+# The following version is specialized for symmetric supports and rely on an optimized
+# version of `compute_weights`.
 @generated function compute_offset_and_weights(sup::SymmetricSupport{T,S},
                                                ker::Kernel{T,S},
                                                x::T) where {T,S}
@@ -320,8 +306,8 @@ end
     generic_compute_offset_and_weights(sup, ker, x)
 end
 
-# The generic version is only called if no optimized version exists.  It can
-# also be used to check code implementing an optimized version.
+# The generic version is only called if no optimized version exists. It can also be used to
+# check code implementing an optimized version.
 @inline generic_compute_offset_and_weights(ker::Kernel{T}, x::T) where {T} =
     generic_compute_offset_and_weights(support(ker), ker, x)
 
@@ -342,8 +328,8 @@ end
 """
     InterpolationKernels.offset(sup, x) -> off
 
-yields the coordinate offset for computing the interpolation weights
-at coordinate `x` for a kernel whose support is `sup`:
+Return the coordinate offset for computing the interpolation weights at coordinate `x` for a
+kernel whose support is `sup`:
 
     off = floor(x - b)       if `sup` is right-open
           ceil(x - b) - 1    if `sup` is left-open
@@ -361,10 +347,9 @@ offset(sup::Support{T,S,Open,Closed}, x::T) where {T,S} =
 """
     InterpolationKernels.compute_weights(ker, t) -> wgt
 
-computes the interpolation weights returned by
-[`InterpolationKernels.compute_offset_and_weights`](@ref) for kernel `ker` with
-symmetric support.  Assuming interpolation is performed at position `x`,
-argument `t` is given by:
+Compute the interpolation weights returned by
+[`InterpolationKernels.compute_offset_and_weights`](@ref) for kernel `ker` with symmetric
+support. Assuming interpolation is performed at position `x`, argument `t` is given by:
 
      t = x - floor(x)     if length(ker) is even, hence t ∈ [0,1)
      t = x - round(x)     if length(ker) is odd,  hence t ∈ [-1/2,+1/2]
@@ -373,16 +358,15 @@ The returned weights are then:
 
      wgt = ntuple(i -> ker(t + k - i), length(ker))
 
-where `k = (length(ker) + 1) >> 1` (i.e., integer division of `length(ker)+1`
-by 2).  These conventions have been adopted so that, by specializing the
-`compute_weights` method, computing the `length(ker)` weights at the same time
-may be done in much fewer operations than calling `ker` as a function for each
-weight.
+where `k = (length(ker) + 1) >> 1` (i.e., integer division of `length(ker)+1` by 2). These
+conventions have been adopted so that, by specializing the `compute_weights` method,
+computing the `length(ker)` weights at the same time may be done in much fewer operations
+than calling `ker` as a function for each weight.
 
 """ compute_weights
 
-# Call generic version by default.  The generic version has a different name so
-# that it can be used to check optimized versions.  Must be in-lined.
+# Call generic version by default. The generic version has a different name so that it can
+# be used to check optimized versions. Must be in-lined.
 @inline compute_weights(ker::Kernel{T}, t::T) where {T} =
     generic_compute_weights(ker, t)
 
@@ -399,8 +383,8 @@ end
 """
     values(ker::InterpolationKernels.Kernel)
 
-yields a tuple of the parameters of the interpolation kernel `ker` such that an
-identical instance can be built by:
+Return a tuple of the parameters of the interpolation kernel `ker` such that an identical
+instance can be built by:
 
     typeof(ker)(values(ker)...)
 
@@ -410,33 +394,32 @@ Base.values(::Kernel) = ()
 """
     InterpolationKernels.support(ker) -> sup
 
-yields the support of the interpolation kernel `ker`.
+Return the support of the interpolation kernel `ker`.
 
 """ support
 
-#------------------------------------------------------------------------------
-# B-SPLINES
+#------------------------------------------------------------------------------- B-splines -
 
 """
     BSpline{S,T}()
 
-yields a B-spline (short for *basis spline*) of order `S` that is a piecewise
-polynomial function of degree `S - 1` on a support of length `S`.  The
-parameter `T` is the floating-point type for computations, `T = Float64` is
-assuled if this parameter is not specified.
+Return a B-spline (short for *basis spline*) of order `S` that is a piecewise polynomial
+function of degree `S - 1` on a support of length `S`. The parameter `T` is the
+floating-point type for computations, `T = Float64` is assuled if this parameter is not
+specified.
 
-Fr now, not all B-spline are implemented in `InterpolationKernels`, `S` must
-be: `1` (for a **rectangular** B-spline), `2` (for a **linear** B-spline), `3`
-(for a **quadratic** B-spline), or `4` (for a **cubic** B-spline).
+Fr now, not all B-spline are implemented in `InterpolationKernels`, `S` must be: `1` (for a
+**rectangular** B-spline), `2` (for a **linear** B-spline), `3` (for a **quadratic**
+B-spline), or `4` (for a **cubic** B-spline).
 
-If `ker` is a B-spline, then `ker'` is its derivative which can also be
-directly constructed by calling [`BSplinePrime`](@ref).
+If `ker` is a B-spline, then `ker'` is its derivative which can also be directly constructed
+by calling [`BSplinePrime`](@ref).
 
 !!! warning
-    The derivative of B-splines of order `S ≤ 2` is not defined everywhere.  It
-    is allowed to take their derivative but it (arbitrarily) yields zero where
-    not defined.  Returning `NaN` would have been more correct but it has been
-    considered that it would do more harm than good in practice.
+    The derivative of B-splines of order `S ≤ 2` is not defined everywhere. It is allowed to
+    take their derivative but it (arbitrarily) yields zero where not defined. Returning
+    `NaN` would have been more correct but it has been considered that it would do more harm
+    than good in practice.
 
 """ BSpline
 
@@ -445,10 +428,10 @@ struct BSpline{S,T} <: Kernel{T,S} end
 """
     BSplinePrime{S,T}()
 
-yields the derivative of a B-spline of order `S` for floating-point `T`.
+Return the derivative of a B-spline of order `S` for floating-point `T`.
 
-See the caveats in [`BSpline`](@ref) about taking the derivative of B-splines of
-order `S ≤ 2`.
+See the caveats in [`BSpline`](@ref) about taking the derivative of B-splines of order `S ≤
+2`.
 
 """ BSplinePrime
 
@@ -500,11 +483,11 @@ end
 
 compute_weights(ker::BSpline{2,T}, t::T) where {T} = (1 - t, t)
 
-# The linear B-spline is not C¹ continuous, its left and right derivatives do
-# not match at x ∈ (-1,0,1).  Setting h'(x) = NaN for x ∈ (-1,0,1) is correct
-# but not useful in practice.  Taking the mean of the left and right
-# derivatives yiedls h'(±1) = ∓1/2 and h'(0) = 0 but, then the support would no
-# longer be semi-open interval of size 2.  For now, h'(x) = 0 for x ∈ (-1,0,1).
+# The linear B-spline is not C¹ continuous, its left and right derivatives do not match at x
+# ∈ (-1,0,1). Setting h'(x) = NaN for x ∈ (-1,0,1) is correct but not useful in practice.
+# Taking the mean of the left and right derivatives yields h'(±1) = ∓1/2 and h'(0) = 0 but,
+# then the support would no longer be semi-open interval of size 2. For now, h'(x) = 0 for x
+# ∈ (-1,0,1).
 @inline function (::BSplinePrime{2,T})(x::T) where {T}
     if (-1 < x)&(x < 0)
         return one(T)
@@ -541,8 +524,7 @@ end
     #     w2 = (3/4) - t^2
     #     w3 = (1/8)*(1 + 2*t)^2 = (1/2)*(1/sqrt(2) + t)^2
     #
-    # which can be computed in 9 operations using the following factorized
-    # expressions:
+    # which can be computed in 9 operations using the following factorized expressions:
     #
     #     w1 = (1/2)*(1/sqrt(2) - t)^2
     #     w2 = (3/4) - t^2
@@ -606,11 +588,11 @@ end
     #        = 4/6 - (1 - t)^2*(t + 1)/2
     #     w4 = t^3/6
     #
-    # Horner's scheme takes 6 operations per cubic polynomial, 24 operations
-    # for the 4 weights.  Precomputing the powers of t, t^2 and t^3, takes 2
-    # operations, then 6 operations per cubic polynomial are needed.
+    # Horner's scheme takes 6 operations per cubic polynomial, 24 operations for the 4
+    # weights. Precomputing the powers of t, t^2 and t^3, takes 2 operations, then 6
+    # operations per cubic polynomial are needed.
     #
-    # Using factorizations, I manage to only use 15 operations:
+    # Using factorization, I manage to only use 15 operations:
     #
     h = frac(T,1,2)
     p = frac(T,2,3)
@@ -647,8 +629,7 @@ end
     return (w1, w2, w3, w4)
 end
 
-#------------------------------------------------------------------------------
-# GENERIC CUBIC SPLINE
+#-------------------------------------------------------------------- Generic cubic spline -
 
 # Abstract types to implement common traits of cubic splines.
 abstract type AbstractCubicSpline{T} <: Kernel{T,4} end
@@ -662,40 +643,37 @@ support(::AbstractCubicSplinePrime{T}) where {T} =
 """
     CubicSpline{T}(a, b) -> ker
 
-yields an instance of a generic cubic spline for floating-point type `T` and
-parameters `a = ker'(1)` and `b = ker(1)` the slope and the value of the
-function `ker(x)` at `x = 1`.
+Return an instance of a generic cubic spline for floating-point type `T` and parameters `a =
+ker'(1)` and `b = ker(1)` the slope and the value of the function `ker(x)` at `x = 1`.
 
-A cubic spline kernel is at least C¹ continuous, the expression `ker'` yields a
-kernel instance implementing the 1st derivative of the generic cubic spline
-`ker` (see [`CubicSplinePrime`](@ref) to directly build a derivative).
+A cubic spline kernel is at least C¹ continuous, the expression `ker'` yields a kernel
+instance implementing the 1st derivative of the generic cubic spline `ker` (see
+[`CubicSplinePrime`](@ref) to directly build a derivative).
 
-Depending on the values of the parameters `a` and `b`, more specific cubic
-spline kernels can be emulated:
+Depending on the values of the parameters `a` and `b`, more specific cubic spline kernels
+can be emulated:
 
-* `CubicSpline{T}(-1/2,1/6)` yields a cubic B-spline as built by
-  `BSpline{4,T}()`.
+* `CubicSpline{T}(-1/2,1/6)` yields a cubic B-spline as built by `BSpline{4,T}()`.
 
 * `CubicSpline{T}(a,0)` yields a cardinal cubic spline as built by
   `CardinalCubicSpline{T}(a)`.
 
-* `CubicSpline{T}(-1/2,0)` yields a Catmull-Rom kernel as built by
-  `CatmullRomSpline{T}()`.
+* `CubicSpline{T}(-1/2,0)` yields a Catmull-Rom kernel as built by `CatmullRomSpline{T}()`.
 
-* `CubicSpline{T}(-b/2-c,b/6)` yields Mitchell & Netravali cubic spline as
-  built by `MitchellNetravaliSpline{T}(b,c)`.
+* `CubicSpline{T}(-b/2-c,b/6)` yields Mitchell & Netravali cubic spline as built by
+  `MitchellNetravaliSpline{T}(b,c)`.
 
-Instances of `CubicSpline` are very well optimized and, in practice, they may
-be as fast or even faster than these more specialized counterparts.
+Instances of `CubicSpline` are very well optimized and, in practice, they may be as fast or
+even faster than these more specialized counterparts.
 
 """ CubicSpline
 
 """
     CubicSplinePrime{T}(a, b)
 
-yields a kernel instance that is the 1st derivative of the generic cubic spline
-of parameters `a` and `b` (see [`CubicSpline`](@ref)) for floating-point
-type `T` (`Float64` by default).
+Return a kernel instance that is the 1st derivative of the generic cubic spline of
+parameters `a` and `b` (see [`CubicSpline`](@ref)) for floating-point type `T` (`Float64` by
+default).
 
 """ CubicSplinePrime
 
@@ -710,10 +688,10 @@ struct CubicSpline{T} <: AbstractCubicSpline{T}
     c5::T
     c6::T
     function CubicSpline{T}(_a::Real, _b::Real) where {T}
-        # NOTE: Paramaters must be signed in the expressions of the kernel
-        # constants.  Since there is no loss of precision in computing these
-        # constants with floating-point arithmetic even though parameters are
-        # integers, we convert the parameters to type T.
+        # NOTE: Parameters must be signed in the expressions of the kernel constants. Since
+        # there is no loss of precision in computing these constants with floating-point
+        # arithmetic even though parameters are integers, we convert the parameters to type
+        # T.
         a, b = T(_a), T(_b)
         new{T}(a, b,
                1 - 2b,     # c0
@@ -838,8 +816,7 @@ for K in (:CubicSpline, :CubicSplinePrime)
     end
 end
 
-#------------------------------------------------------------------------------
-# KEYS' CARDINAL CUBIC SPLINE
+#------------------------------------------------------------- Keys' cardinal cubic spline -
 
 # Abstract types to implement common traits of cardinal cubic splines.
 abstract type AbstractCardinalCubicSpline{T} <: AbstractCubicSpline{T} end
@@ -848,26 +825,24 @@ abstract type AbstractCardinalCubicSplinePrime{T} <: AbstractCubicSplinePrime{T}
 """
     CardinalCubicSpline{T}(a)
 
-yields an instance of the Keys family of cardinal cubic splines for
-floating-point type `T` and parameter `a = ker'(1)` the slope of the function
-`ker(x)` at `x = 1`.
+Return an instance of the Keys family of cardinal cubic splines for floating-point type `T`
+and parameter `a = ker'(1)` the slope of the function `ker(x)` at `x = 1`.
 
-These kernels are C¹ continuous piecewise normalized cardinal cubic spline
-which depend on one parameter `a` and defined by:
+These kernels are C¹ continuous piecewise normalized cardinal cubic spline which depend on
+one parameter `a` and defined by:
 
     ker(x) = 1 + ((2 + a)*|x| - (3 + a))*x^2    if |x| ≤ 1
              a*(|x| - 1)*(|x| - 2)^2            if 1 ≤ |x| ≤ 2
              0                                  if |x| ≥ 2
 
-The expression `ker'` yields a kernel instance which is the 1st derivative of
-the Keys kernel `ker` (also see the constructor
-[`CardinalCubicSplinePrime`](@ref)).
+The expression `ker'` yields a kernel instance which is the 1st derivative of the Keys
+kernel `ker` (also see the constructor [`CardinalCubicSplinePrime`](@ref)).
 
 Reference:
 
-* Keys, Robert, G., "*Cubic Convolution Interpolation for Digital Image
-  Processing*", IEEE Trans. Acoustics, Speech, and Signal Processing,
-  Vol. ASSP-29, No. 6, December 1981, pp. 1153-1160.
+* Keys, Robert, G., "*Cubic Convolution Interpolation for Digital Image Processing*", IEEE
+  Trans. Acoustics, Speech, and Signal Processing, Vol. ASSP-29, No. 6, December 1981, pp.
+  1153-1160.
 
 """ CardinalCubicSpline
 
@@ -926,9 +901,9 @@ end
 """
     CardinalCubicSplinePrime{T}(a)
 
-yields a kernel instance that is the 1st derivative of the Keys cardinal cubic
-spline (see [`CardinalCubicSpline`](@ref)) for floating-point type `T` and
-parameter `a`.  This derivative is given by:
+Return a kernel instance that is the 1st derivative of the Keys cardinal cubic spline (see
+[`CardinalCubicSpline`](@ref)) for floating-point type `T` and parameter `a`. This
+derivative is given by:
 
     ker′(x) = (3(a + 2)*|x| - 2(a + 3))*x           if |x| ≤ 1
               (3a)*(|x| - 2)*(|x| - 4/3)*sign(x)    if 1 ≤ |x| ≤ 2
@@ -971,24 +946,22 @@ for K in (:CardinalCubicSpline, :CardinalCubicSplinePrime)
     end
 end
 
-#------------------------------------------------------------------------------
-# CATMULL-ROM INTERPOLATION KERNEL
+#-------------------------------------------------------- Catmull-Rom interpolation kernel -
 
 """
     CatmullRomSpline{T}()
 
-yields an instance of the Catmull-Rom interpolation kernel for floating-point
-type `T` which is assumed to be `Float64` if omitted.
+Return an instance of the Catmull-Rom interpolation kernel for floating-point type `T` which
+is assumed to be `Float64` if omitted.
 
-Catmull-Rom interpolation kernel is a cardinal piecewise cubic spline defined
-by:
+Catmull-Rom interpolation kernel is a cardinal piecewise cubic spline defined by:
 
     ker(x) = ((3/2)*|x| - (5/2))*x^2 + 1             if |x| ≤ 1
              (((5/2) - (1/2)*|x|)*|x| - 4)*|x| + 2   if 1 ≤ |x| ≤ 2
              0                                       if |x| ≥ 2
 
-The expression `ker'` yields a kernel instance which is the 1st derivative of
-the Catmull-Rom interpolation kernel `ker` (also see the constructor
+The expression `ker'` yields a kernel instance which is the 1st derivative of the
+Catmull-Rom interpolation kernel `ker` (also see the constructor
 [`CatmullRomSplinePrime`](@ref)).
 
 """ CatmullRomSpline
@@ -1024,9 +997,9 @@ end
 """
     CatmullRomSplinePrime{T}()
 
-yields a kernel instance that is the 1st derivative of the Catmull-Rom
-interpolation kernel (see [`CatmullRomSpline`](@ref)) for floating-point type
-`T` which is assumed to be `Float64` if omitted.
+Return a kernel instance that is the 1st derivative of the Catmull-Rom interpolation kernel
+(see [`CatmullRomSpline`](@ref)) for floating-point type `T` which is assumed to be
+`Float64` if omitted.
 
 The 1st derivative of the Catmull-Rom interpolation kernel is given by:
 
@@ -1092,26 +1065,24 @@ for K in (:CatmullRomSpline, :CatmullRomSplinePrime)
     end
 end
 
-#------------------------------------------------------------------------------
-# MITCHELL & NETRAVALI KERNELS
+#------------------------------------------------------------ Mitchell & Netravali kernels -
 
 """
     MitchellNetravaliSpline{T}(b=1/3, c=1/3)
 
-yields an instance of the Mitchell & Netravali family of kernels for
-floating-point type `T` and parameters `(b,c)`.
+Return an instance of the Mitchell & Netravali family of kernels for floating-point type `T`
+and parameters `(b,c)`.
 
-These kernels are cubic splines which depends on 2 parameters, `b` and `c`.
-Whatever the values of `(b,c)`, Mitchell & Netravali kernels are normalized,
-even and C¹ continuous functions (these kernels and their first derivatives are
-continuous).
+These kernels are cubic splines which depends on 2 parameters, `b` and `c`. Whatever the
+values of `(b,c)`, Mitchell & Netravali kernels are normalized, even and C¹ continuous
+functions (these kernels and their first derivatives are continuous).
 
 Taking `b = 0` yields the family of cardinal cubic splines (see
-[`CardinalCubicSpline`](@ref)) and is a sufficient and necessary condition to
-have Mitchell & Netravali kernels be cardinal functions.
+[`CardinalCubicSpline`](@ref)) and is a sufficient and necessary condition to have Mitchell
+& Netravali kernels be cardinal functions.
 
-Using the constraint: `b + 2c = 1` yields a cubic filter with, at least,
-quadratic order approximation.
+Using the constraint: `b + 2c = 1` yields a cubic filter with, at least, quadratic order
+approximation.
 
 Some specific values of `(b,c)` yield other well known kernels:
 
@@ -1122,17 +1093,15 @@ Some specific values of `(b,c)` yield other well known kernels:
     (b,c) = (6β,-α-3β) --> generic cubic spline CubicSpline(α,β)
     (b,c) = (1/3,1/3)  --> recommended by Mitchell-Netravali
 
-The expression `ker'` yields a kernel instance which is the 1st derivative of
-the Mitchell & Netravali kernel `ker` (also see the constructor
-[`MitchellNetravaliSplinePrime`](@ref)).
+The expression `ker'` yields a kernel instance which is the 1st derivative of the Mitchell &
+Netravali kernel `ker` (also see the constructor [`MitchellNetravaliSplinePrime`](@ref)).
 
-Mitchell & Netravali family of kernels are currently instances of
-[`CubicSpline`](@ref).
+Mitchell & Netravali family of kernels are currently instances of [`CubicSpline`](@ref).
 
 Reference:
 
-* [Mitchell & Netravali, "*Reconstruction Filters in Computer Graphics*", in
-  Computer Graphics, Vol. 22, Num. 4
+* [Mitchell & Netravali, "*Reconstruction Filters in Computer Graphics*", in Computer
+  Graphics, Vol. 22, Num. 4
   (1988)](http://www.cs.utexas.edu/users/fussell/courses/cs384g/lectures/mitchell/Mitchell.pdf).
 
 """ MitchellNetravaliSpline
@@ -1142,9 +1111,9 @@ abstract type MitchellNetravaliSpline{T} <: AbstractCubicSpline{T} end
 """
     MitchellNetravaliSplinePrime([T=Float64,] [b=1/3, c=1/3,] B=Flat)
 
-yields a kernel instance that is the 1st derivative of the Mitchell & Netravali
-kernel (see [`MitchellNetravaliSpline`](@ref)) for floating-point type `T`,
-parameters `b` and `c` and boundary conditions `B`.
+Return a kernel instance that is the 1st derivative of the Mitchell & Netravali kernel (see
+[`MitchellNetravaliSpline`](@ref)) for floating-point type `T`, parameters `b` and `c` and
+boundary conditions `B`.
 
 """ MitchellNetravaliSplinePrime
 
@@ -1162,32 +1131,30 @@ for K in (:MitchellNetravaliSpline, :MitchellNetravaliSplinePrime)
     end
 end
 
-#------------------------------------------------------------------------------
-# LANCZOS RESAMPLING KERNEL
+#-------------------------------------------------------------- Lanczos resampling kernels -
 
 """
     LanczosKernel{S,T}()
 
-yields an instance of a Lanczos re-sampling kernel of support size `S` (which
-must be even) and for floating-point type `T`.
+Return an instance of a Lanczos re-sampling kernel of support size `S` (which must be even)
+and for floating-point type `T`.
 
-The Lanczos re-sampling kernels are even cardinal functions which tend to be
-normalized for large support size.  They are defined by:
+The Lanczos re-sampling kernels are even cardinal functions which tend to be normalized for
+large support size. They are defined by:
 
     ker(x) = S/(2*(π*x)^2)*sin(π*x)*sin(2*π*x/S)     if |x| ≤ S/2
              0                                       if |x| ≥ S/2
 
-The expression `ker'` yields the first derivative of a Lanczos re-sampling
-kernel `ker` (also see the constructor [`LanczosKernelPrime`](@ref)).
+The expression `ker'` yields the first derivative of a Lanczos re-sampling kernel `ker`
+(also see the constructor [`LanczosKernelPrime`](@ref)).
 
 """ LanczosKernel
 
 """
     LanczosKernelPrime{S,T}()
 
-yields a kernel instance that is the 1st derivative of the Lanczos re-sampling
-kernel (see [`LanczosKernel`](@ref)) of support size `S` and for floating-point
-type `T`.
+Return a kernel instance that is the 1st derivative of the Lanczos re-sampling kernel (see
+[`LanczosKernel`](@ref)) of support size `S` and for floating-point type `T`.
 
 """ LanczosKernelPrime
 
@@ -1287,7 +1254,7 @@ end
          Expr(:return, Expr(:tuple, W...)))
 end
 
-#------------------------------------------------------------------------------
+#-------------------------------------------------------------------------------------------
 
 @inline frac(::Type{T}, a::Integer, b::Integer) where {T<:AbstractFloat} = (T(a)/T(b))
 @inline square(x) = x*x
@@ -1304,7 +1271,7 @@ yields the sign and absolute value of `x` both with the same type as `x`.
                                   ifelse(x < 0, (oftype(one(x),-1), -x),
                                          (zero(x), zero(x))))
 
-#------------------------------------------------------------------------------
+#-------------------------------------------------------------------------------------------
 
 # Manage to call the short version of `show` for MIME output.
 Base.show(io::IO, ::MIME"text/plain", ker::Kernel) = show(io, ker)
@@ -1316,9 +1283,8 @@ function Base.show(io::IO, ker::Kernel)
     print(io, ')')
 end
 
-# The first instance below is needed to automatically do nothing when
-# converting to a kernel of the same type (remember that convert is called to
-# instantiate structure fields).
+# The first instance below is needed to automatically do nothing when converting to a kernel
+# of the same type (remember that convert is called to instantiate structure fields).
 Base.convert(::Type{K}, ker::K) where {K<:Kernel} = ker
 Base.convert(::Type{K}, ker::Kernel) where {K<:Kernel} = K(ker)::K
 
@@ -1335,7 +1301,7 @@ end
 """
     InterpolationKernels.brief(ker)
 
-yields a brief description of the kernel type or instance `ker`.
+Return a brief description of the kernel type or instance `ker`.
 
 """
 brief(ker::Kernel) = brief(typeof(ker))
@@ -1372,8 +1338,7 @@ brief(::Type{<:CatmullRomSplinePrime}) =
 @noinline brief(::Type{<:LanczosKernelPrime{S}}) where {S} =
     "derivative of Lanczos resampling kernel of size $S"
 
-# Manage to yield the derivative of (some) kernels when the notation `ker'` is
-# used.
+# Manage to yield the derivative of (some) kernels when the notation `ker'` is used.
 Base.adjoint(ker::BSpline{S,T}) where {S,T} = BSplinePrime{S,T}()
 Base.adjoint(ker::CubicSpline{T}) where {T} = CubicSplinePrime{T}(ker.a, ker.b)
 Base.adjoint(ker::CardinalCubicSpline{T}) where {T} = CardinalCubicSplinePrime{T}(ker.a)
@@ -1404,9 +1369,8 @@ for (K, has_size) in (:BSpline                  => true,
                       :LanczosKernel            => true,
                       :LanczosKernelPrime       => true)
 
-    # We want that calling the kernel on a different type of real argument than
-    # the floating-point type of the kernel convert the argument.
-    # Unfortunately, defining:
+    # We want that calling the kernel on a different type of real argument than the
+    # floating-point type of the kernel convert the argument. Unfortunately, defining:
     #
     #     (ker::$K{T})(x::Real) where {T<:AbstractFloat} = ker(convert(T,x))
     #

@@ -8,11 +8,10 @@
 [![deps](https://juliahub.com/docs/General/InterpolationKernels/stable/deps.svg)](https://juliahub.com/ui/Packages/General/InterpolationKernels?t=2)
 [![Aqua QA](https://raw.githubusercontent.com/JuliaTesting/Aqua.jl/master/badge.svg)](https://github.com/JuliaTesting/Aqua.jl)
 
-The `InterpolationKernels` package provides a library of interpolation kernels
-for [Julia](https://julialang.org/).  As suggested by their name,
-interpolations kernels are mostly designed for interpolation, they can be
-thought as smart functions that know their derivative and that implement
-optimized computation of interpolation weights.
+The `InterpolationKernels` package provides a library of interpolation kernels for
+[Julia](https://julialang.org/). As suggested by their name, interpolations kernels are
+mostly designed for interpolation, they can be thought as smart functions that know their
+derivative and that implement optimized computation of interpolation weights.
 
 You may have a look at some sections of the [the latest
 documentation](https://emmt.github.io/InterpolationKernels.jl/dev/):
@@ -22,8 +21,8 @@ documentation](https://emmt.github.io/InterpolationKernels.jl/dev/):
 
 The `InterpolationKernels` package is used by:
 
-- [FineShift](https://github.com/emmt/FineShift.jl), a Julia package for
-  fast sub-sample shifting of arrays.
+- [FineShift](https://github.com/emmt/FineShift.jl), a Julia package for fast sub-sample
+  shifting of arrays.
 
 - [LinearInterpolators](https://github.com/emmt/LinearInterpolators.jl) which implements
   various interpolation methods for Julia as linear mappings.
