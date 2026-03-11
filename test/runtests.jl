@@ -584,7 +584,7 @@ end
                 @test shortname(summary(ker)) == shortname(typeof(ker))
                 if iscardinal(ker)
                     @test ker(0) == 1
-                    @test maximum(abs.(ker([-3,-2,-1,1,2,3]))) ≤ tol
+                    @test maximum(abs.(ker.([-3,-2,-1,1,2,3]))) ≤ tol
                 end
                 for κ in (ker,
                           RightAnchoredKernel(ker),
@@ -637,6 +637,10 @@ end
                 @test wgt_gen_err ≤ tol
                 @test off_opt_err == 0
                 @test wgt_opt_err ≤ tol
+
+                # Application to an array.
+                A = rand(eltype(ker), 23)
+                @test_deprecated ker(A) == ker.(A)
             end
         end
         let ker = BSpline{6}()

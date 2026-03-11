@@ -6,6 +6,9 @@
 
 - Minimal Julia version is 1.0, this bound is imposed by the `TypeUtils` package.
 
+- `ker(A)` with `ker` an interpolation kernel an `A` an abstract array has been deprecated.
+  Use `map(ker, A)` or `ker.(A)` instead.
+
 ### Added
 
 - Use [`TypeUtils`](https://github.com/emmt/TypeUtils.jl).

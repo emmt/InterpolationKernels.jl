@@ -180,7 +180,6 @@ Called as a function with a real argument, a given kernel returns a value of its
 floating-point type. This has been chosen to have fast interpolation methods. Converting a
 kernel `ker` to use floating-point type `T` is simply done by one of:
 
-    T(ker)
     Kernel{T}(ker)
     convert(Kernel{T}, ker)
     adapt_precision(T, ker)
@@ -1387,14 +1386,8 @@ for (K, has_size) in (:BSpline                  => true,
         end
     end
 
-    # Calling the kernel on an array.  FIXME: should be deprecated!
-    if has_size
-        @eval (ker::$K{S,T})(A::AbstractArray) where {S,T<:AbstractFloat} =
-            map(ker, A)
-    else
-        @eval (ker::$K{T})(A::AbstractArray) where {T<:AbstractFloat} =
-            map(ker, A)
-    end
+    # Calling the kernel on an array.
+    @eval @deprecate((ker::$K)(A::AbstractArray), map(ker, A), false)
 
     # Change floating-point type.
     if has_size
