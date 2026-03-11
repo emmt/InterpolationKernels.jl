@@ -39,7 +39,9 @@ using TypeUtils
 using TypeUtils: @public, Precision
 
 @public(
+    Closed,
     LeftAnchoredSupport,
+    Open,
     RightAnchoredSupport,
     Support,
     SymmetricSupport,
