@@ -1295,10 +1295,6 @@ Kernel{T}(ker::Kernel{<:Any}) where {T} = convert_eltype(T, ker)
 Kernel{T,S}(ker::Kernel{T,S}) where {T,S} = ker
 Kernel{T,S}(ker::Kernel{<:Any,S}) where {T,S} = convert_eltype(T, ker)
 
-for T in FLOATS
-    @eval @deprecate(Base.$T(ker::Kernel), convert_eltype($T, ker), false)
-end
-
 """
     InterpolationKernels.brief(ker)
 
@@ -1386,9 +1382,6 @@ for (K, has_size) in (:BSpline                  => true,
         end
     end
 
-    # Calling the kernel on an array.
-    @eval @deprecate((ker::$K)(A::AbstractArray), map(ker, A), false)
-
     # Change floating-point type.
     if has_size
         @eval begin
@@ -1413,5 +1406,7 @@ for (K, has_size) in (:BSpline                  => true,
             print(io, $(string(K, "{")), T, '}')
     end
 end
+
+include("deprecated.jl")
 
 end # module

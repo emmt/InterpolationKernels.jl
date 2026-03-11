@@ -653,7 +653,11 @@ end
 
                 # Application to an array.
                 A = rand(eltype(ker), 23)
-                @test_deprecated ker(A) == ker.(A)
+                if VERSION ≥ v"1.9"
+                    @test_deprecated ker(A) == ker.(A)
+                else
+                    @test ker(A) == ker.(A)
+                end
             end
         end
         let ker = BSpline{6}()
