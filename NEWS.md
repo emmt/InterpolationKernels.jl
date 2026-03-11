@@ -24,6 +24,11 @@
 - Extend and re-export `get_precision`, `adapt_precision`, and `convert_eltype` from the
   [`TypeUtils`](https://github.com/emmt/TypeUtils.jl) package.
 
+### Fixed
+
+- A type ambiguity in `ker(x)` with `ker` an interpolation kernel and `x` a real
+  has been fixed. As a result, the code is simpler and more general.
+
 
 ## Version 0.2.6
 

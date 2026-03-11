@@ -462,13 +462,13 @@ isnormalized(::Union{K,Type{K}}) where {K<:BSplinePrime} = false
 # Rectangular B-spline
 # --------------------
 #
-@inline (::BSpline{1,T})(x::T) where {T} =
+@inline (::BSpline{1,T})(x::T) where {T<:AbstractFloat} =
     ifelse((x < frac(T,-1,2))|(x ≥ frac(T,1,2)), zero(T), one(T))
 compute_offset_and_weights(::BSpline{1,T}, x::T) where {T} =
     (round(x) - 1, (one(T),))
 compute_weights(::BSpline{1,T}, t::T) where {T} = (one(T),)
 
-(::BSplinePrime{1,T})(x::T) where {T} = zero(T)
+(::BSplinePrime{1,T})(x::T) where {T<:AbstractFloat} = zero(T)
 compute_offset_and_weights(::BSplinePrime{1,T}, x::T) where {T} =
     (round(x) - 1, (zero(T),))
 compute_weights(::BSplinePrime{1,T}, t::T) where {T} = (zero(T),)
@@ -477,7 +477,7 @@ compute_weights(::BSplinePrime{1,T}, t::T) where {T} = (zero(T),)
 # Linear B-splines
 # ----------------
 #
-@inline function (::BSpline{2,T})(x::T) where {T}
+@inline function (::BSpline{2,T})(x::T) where {T<:AbstractFloat}
     abs_x = abs(x)
     return ifelse(abs_x < 1, 1 - abs_x, zero(T))
 end
@@ -489,7 +489,7 @@ compute_weights(ker::BSpline{2,T}, t::T) where {T} = (1 - t, t)
 # Taking the mean of the left and right derivatives yields h'(±1) = ∓1/2 and h'(0) = 0 but,
 # then the support would no longer be semi-open interval of size 2. For now, h'(x) = 0 for x
 # ∈ (-1,0,1).
-@inline function (::BSplinePrime{2,T})(x::T) where {T}
+@inline function (::BSplinePrime{2,T})(x::T) where {T<:AbstractFloat}
     if (-1 < x)&(x < 0)
         return one(T)
     elseif (0 < x)&(x < 1)
@@ -506,7 +506,7 @@ compute_weights(ker::BSplinePrime{2,T}, t::T) where {T} =
 # Quadratic B-spline
 # ------------------
 #
-@inline function (::BSpline{3,T})(x::T) where {T}
+@inline function (::BSpline{3,T})(x::T) where {T<:AbstractFloat}
     abs_x = abs(x)
     if abs_x ≥ frac(T,3,2)
         return zero(T)
@@ -541,7 +541,7 @@ end
     return (w1, w2, w3)
 end
 
-@inline function (::BSplinePrime{3,T})(x::T) where {T}
+@inline function (::BSplinePrime{3,T})(x::T) where {T<:AbstractFloat}
     if (x ≤ frac(T,-3,2))|(x ≥ frac(T,3,2))
         return zero(T)
     elseif x < frac(T,-1,2)
@@ -563,7 +563,7 @@ end
 # Cubic B-spline
 # --------------
 #
-@inline function (::BSpline{4,T})(x::T) where {T}
+@inline function (::BSpline{4,T})(x::T) where {T<:AbstractFloat}
     abs_x = abs(x)
     if abs_x ≥ 2
         return zero(T)
@@ -608,7 +608,7 @@ end
     return (w1, w2, w3, w4)
 end
 
-@inline function (::BSplinePrime{4,T})(x::T) where {T}
+@inline function (::BSplinePrime{4,T})(x::T) where {T<:AbstractFloat}
     if (x ≤ -2)|(x ≥ 2)
         return zero(T)
     elseif x < -1
@@ -705,7 +705,7 @@ struct CubicSpline{T} <: AbstractCubicSpline{T}
     end
 end
 
-@inline function (ker::CubicSpline{T})(x::T) where {T}
+@inline function (ker::CubicSpline{T})(x::T) where {T<:AbstractFloat}
     abs_x = abs(x)
     if abs_x ≤ 1
         return (ker.c2*abs_x + ker.c1)*abs_x^2 + ker.c0
@@ -768,7 +768,7 @@ struct CubicSplinePrime{T} <: AbstractCubicSplinePrime{T}
     end
 end
 
-@inline function (ker::CubicSplinePrime{T})(x::T) where {T}
+@inline function (ker::CubicSplinePrime{T})(x::T) where {T<:AbstractFloat}
     sign_x, abs_x = signabs(x)
     if abs_x ≤ 1
         return (ker.c1 + ker.c2*abs_x)*x
@@ -858,7 +858,7 @@ struct CardinalCubicSpline{T} <: AbstractCardinalCubicSpline{T}
     end
 end
 
-@inline function (ker::CardinalCubicSpline{T})(x::T) where {T}
+@inline function (ker::CardinalCubicSpline{T})(x::T) where {T<:AbstractFloat}
     abs_x = abs(x)
     if abs_x ≥ 2
         return zero(T)
@@ -921,7 +921,7 @@ struct CardinalCubicSplinePrime{T} <: AbstractCardinalCubicSplinePrime{T}
         new{T}(a, 3(a + 2), 2(a + 3), 3a)
 end
 
-@inline function (ker::CardinalCubicSplinePrime{T})(x::T) where {T}
+@inline function (ker::CardinalCubicSplinePrime{T})(x::T) where {T<:AbstractFloat}
     sign_x, abs_x = signabs(x)
     if abs_x ≥ 2
         return zero(T)
@@ -969,7 +969,7 @@ Catmull-Rom interpolation kernel `ker` (also see the constructor
 
 struct CatmullRomSpline{T} <: AbstractCardinalCubicSpline{T} end
 
-@inline function (::CatmullRomSpline{T})(x::T) where {T}
+@inline function (::CatmullRomSpline{T})(x::T) where {T<:AbstractFloat}
     abs_x = abs(x)
     if abs_x ≥ 2
         return zero(T)
@@ -1012,7 +1012,7 @@ The 1st derivative of the Catmull-Rom interpolation kernel is given by:
 
 struct CatmullRomSplinePrime{T} <: AbstractCardinalCubicSplinePrime{T} end
 
-@inline function (::CatmullRomSplinePrime{T})(x::T) where {T}
+@inline function (::CatmullRomSplinePrime{T})(x::T) where {T<:AbstractFloat}
     if x < 0
         if x ≤ -2
             return zero(T)
@@ -1195,8 +1195,8 @@ isnormalized(::Union{K,Type{K}}) where {K<:LanczosKernelPrime} = false
 support(::LanczosKernel{S,T}) where {S,T} = SymmetricSupport{T,S,Open,Open}()
 support(::LanczosKernelPrime{S,T}) where {S,T} = SymmetricSupport{T,S,Open,Open}()
 
-(ker::LanczosKernel{S,T})(x::T) where {S,T} = call(ker, convert(T, x))
-(ker::LanczosKernelPrime{S,T})(x::T) where {S,T} = call(ker, convert(T, x))
+(ker::LanczosKernel{S,T})(x::T) where {S,T<:AbstractFloat} = call(ker, convert(T, x))
+(ker::LanczosKernelPrime{S,T})(x::T) where {S,T<:AbstractFloat} = call(ker, convert(T, x))
 
 function call(::LanczosKernel{S,T}, x::T) where {S,T<:AbstractFloat}
     if x == zero(x)
@@ -1366,20 +1366,12 @@ for (K, has_size) in (:BSpline                  => true,
                       :LanczosKernel            => true,
                       :LanczosKernelPrime       => true)
 
-    # We want that calling the kernel on a different type of real argument than the
-    # floating-point type of the kernel convert the argument. Unfortunately, defining:
-    #
-    #     (ker::$K{T})(x::Real) where {T<:AbstractFloat} = ker(convert(T,x))
-    #
-    # leads to ambiguities, the following is ugly but works...
-    for T in FLOATS, R in (FLOATS..., :Integer)
-        if R != T
-            if has_size
-                @eval @inline (ker::$K{S,$T})(x::$R) where {S} = ker($T(x))
-            else
-                @eval @inline (ker::$K{$T})(x::$R) = ker($T(x))
-            end
-        end
+    # Calling the kernel on a different type of real argument than the floating-point type
+    # of the kernel convert the argument.
+    if has_size
+        @eval @inline (ker::$K{S,T})(x::Real) where {S,T<:AbstractFloat} = ker(T(x)::T)
+    else
+        @eval @inline (ker::$K{T})(x::Real) where {T<:AbstractFloat} = ker(T(x)::T)
     end
 
     # Change floating-point type.
