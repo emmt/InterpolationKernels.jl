@@ -29,10 +29,15 @@ export
     MitchellNetravaliSpline,
     MitchellNetravaliSplinePrime,
     iscardinal,
-    isnormalized
+    isnormalized,
+
+    # Re-exports from `TypeUtils`.
+    adapt_precision,
+    get_precision,
+    convert_eltype
 
 using TypeUtils
-using TypeUtils: @public
+using TypeUtils: @public, Precision
 
 @public(
     LeftAnchoredSupport,
@@ -185,6 +190,7 @@ interpolation methods.  Converting a kernel `ker` to use floating-point type
     T(ker)
     Kernel{T}(ker)
     convert(Kernel{T}, ker)
+    adapt_precision(T, ker)
 
 Beware that changing the floating-point type may lead to a loss of precision if
 the kernel has numerical parameters.
@@ -1310,28 +1316,20 @@ function Base.show(io::IO, ker::Kernel)
     print(io, ')')
 end
 
-"""
-    InterpolationKernels.with_eltype(T, ker)
-
-yields an instance (resp. a type) of interpolation kernel instance (resp. type)
-`ker` but with floating-point type `T`.
-
-"""
-with_eltype(::Type{T}, ::Type{K}) where {T<:AbstractFloat,K<:Kernel{T}} = K
-with_eltype(::Type{T}, ker::Kernel{T}) where {T<:AbstractFloat} = ker
-
 # The first instance below is needed to automatically do nothing when
 # converting to a kernel of the same type (remember that convert is called to
 # instantiate structure fields).
 Base.convert(::Type{K}, ker::K) where {K<:Kernel} = ker
-Base.convert(::Type{K}, ker::Kernel) where {K<:Kernel} = K(ker)
+Base.convert(::Type{K}, ker::Kernel) where {K<:Kernel} = K(ker)::K
 
 Kernel(ker::Kernel) = ker
-Kernel{T}(ker::Kernel) where {T<:AbstractFloat} = with_eltype(T, ker)
-Kernel{T,S}(ker::Kernel{<:Any,S}) where {T<:AbstractFloat,S} = with_eltype(T, ker)
+Kernel{T}(ker::Kernel{T}) where {T} = ker
+Kernel{T}(ker::Kernel{<:Any}) where {T} = convert_eltype(T, ker)
+Kernel{T,S}(ker::Kernel{T,S}) where {T,S} = ker
+Kernel{T,S}(ker::Kernel{<:Any,S}) where {T,S} = convert_eltype(T, ker)
 
 for T in FLOATS
-    @eval Base.$T(ker::Kernel) = with_eltype($T, ker)
+    @eval Base.$T(ker::Kernel) = convert_eltype($T, ker)
 end
 
 """
@@ -1382,15 +1380,29 @@ Base.adjoint(ker::CardinalCubicSpline{T}) where {T} = CardinalCubicSplinePrime{T
 Base.adjoint(ker::CatmullRomSpline{T}) where {T} = CatmullRomSplinePrime{T}()
 Base.adjoint(ker::LanczosKernel{S,T}) where {S,T} = LanczosKernelPrime{S,T}()
 
-# Provide methods for all kernels.
-for K in (:BSpline,             :BSplinePrime,
-          :CubicSpline,         :CubicSplinePrime,
-          :CardinalCubicSpline, :CardinalCubicSplinePrime,
-          :CatmullRomSpline,    :CatmullRomSplinePrime,
-          :LanczosKernel,       :LanczosKernelPrime)
+TypeUtils.convert_eltype(::Type{T}, ::Type{K}) where {T,K<:Kernel{T}} = K
+TypeUtils.convert_eltype(::Type{T}, ker::Kernel{T}) where {T} = ker
+TypeUtils.convert_eltype(::Type{T}, ker::Kernel) where {T} =
+    convert(convert_eltype(T, typeof(ker)), ker)
 
-    has_size = (K === :BSpline || K === :BSplinePrime ||
-        K === :LanczosKernel || K === :LanczosKernelPrime)
+TypeUtils.get_precision(::Type{<:Kernel{T,S}}) where {T,S} = get_precision(T)
+
+TypeUtils.adapt_precision(::Type{T}, ::Type{K}) where {T<:Precision,K<:Kernel} =
+    convert_eltype(adapt_precision(T, eltype(K)), K)
+TypeUtils.adapt_precision(::Type{T}, ker::Kernel) where {T<:Precision} =
+    convert(adapt_precision(T, typeof(ker)), ker)
+
+# Provide methods for all kernels.
+for (K, has_size) in (:BSpline                  => true,
+                      :BSplinePrime             => true,
+                      :CubicSpline              => false,
+                      :CubicSplinePrime         => false,
+                      :CardinalCubicSpline      => false,
+                      :CardinalCubicSplinePrime => false,
+                      :CatmullRomSpline         => false,
+                      :CatmullRomSplinePrime    => false,
+                      :LanczosKernel            => true,
+                      :LanczosKernelPrime       => true)
 
     # We want that calling the kernel on a different type of real argument than
     # the floating-point type of the kernel convert the argument.
@@ -1419,19 +1431,17 @@ for K in (:BSpline,             :BSplinePrime,
     end
 
     # Change floating-point type.
-    @eval $K{T}(ker::$K) where {T<:AbstractFloat} = with_eltype(T, ker)
     if has_size
         @eval begin
-            $K{S,T}(ker::$K{S}) where {S,T<:AbstractFloat} = with_eltype(T, ker)
-            with_eltype(::Type{T}, ::Type{<:$K{S}}) where {S,T<:AbstractFloat} = $K{S,T}
-            with_eltype(::Type{T}, ker::$K{S}) where {S,T<:AbstractFloat} = $K{S,T}(values(ker)...)
-            with_eltype(::Type{T}, ker::$K{T,S}) where {S,T<:AbstractFloat} = ker
+            $K{S,T}(ker::$K{S,T}) where {S,T} = ker
+            $K{S,T}(ker::$K{S}) where {S,T} = $K{S,T}(values(ker)...)
+            TypeUtils.convert_eltype(::Type{T}, ::Type{<:$K{S}}) where {T,S} = $K{S,T}
         end
     else
         @eval begin
-            with_eltype(::Type{T}, ::Type{<:$K}) where {T<:AbstractFloat} = $K{T}
-            with_eltype(::Type{T}, ker::$K{T}) where {T<:AbstractFloat} = ker
-            with_eltype(::Type{T}, ker::$K) where {T<:AbstractFloat} = $K{T}(values(ker)...)
+            $K{T}(ker::$K{T}) where {T} = ker
+            $K{T}(ker::$K) where {T} = $K{T}(values(ker)...)
+            TypeUtils.convert_eltype(::Type{T}, ::Type{<:$K}) where {T} = $K{T}
         end
     end
 

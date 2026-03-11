@@ -10,6 +10,9 @@
 
 - Tests with [`Aqua.jl`](https://github.com/JuliaTesting/Aqua.jl).
 
+- Extend and re-export `get_precision`, `adapt_precision`, and `convert_eltype` from the
+  [`TypeUtils`](https://github.com/emmt/TypeUtils.jl) package.
+
 
 ## Version 0.2.6
 
