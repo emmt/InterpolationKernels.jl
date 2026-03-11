@@ -1296,7 +1296,7 @@ Kernel{T,S}(ker::Kernel{T,S}) where {T,S} = ker
 Kernel{T,S}(ker::Kernel{<:Any,S}) where {T,S} = convert_eltype(T, ker)
 
 for T in FLOATS
-    @eval Base.$T(ker::Kernel) = convert_eltype($T, ker)
+    @eval @deprecate(Base.$T(ker::Kernel), convert_eltype($T, ker), false)
 end
 
 """

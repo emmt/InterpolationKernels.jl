@@ -313,7 +313,7 @@ support(ker::RightAnchoredKernel{T,S,L,R}) where {T,S,L,R} =
 
 raw_type(ker::Kernel) = raw_type(typeof(ker))
 for K in (:BSpline,              :BSplinePrime,
-          :CubicSpline,   :CubicSplinePrime,
+          :CubicSpline,          :CubicSplinePrime,
           :CardinalCubicSpline,  :CardinalCubicSplinePrime,
           :CatmullRomSpline,     :CatmullRomSplinePrime,
           :LanczosKernel,        :LanczosKernelPrime)
@@ -532,18 +532,31 @@ end
                 @test convert(Kernel{eltype(ker),length(ker)}, ker) === ker
             end
             for T in FLOATS
+                other = @inferred(convert(Kernel{T}, ker))
+                @test other isa Kernel{T}
+                @test_deprecated T(ker) == other
+                if T === eltype(ker)
+                    @test other === ker
+                end
                 if has_size_parameter(ker)
                     S = length(ker)
-                    @test typeof(T(ker)) <: K{S,T}
+                    @test @inferred(K{S,T}(ker)) isa K{S,T}
                     if T !== BigFloat
-                        @test T(ker) === K{S,T}(ker)
-                        @test T(ker) === K{S,T}(values(ker)...)
+                        @test @inferred(convert(Kernel{T,S}, ker)) == other
+                        @test @inferred(K{S,T}(ker)) === other
+                        @test @inferred(convert(K{S,T}, ker)) === other
+                        @test @inferred(convert_eltype(T, ker)) === other
+                        @test @inferred(adapt_precision(T, ker)) === other
+                        @test @inferred(K{S,T}(values(ker)...)) === other
                     end
                 else
-                    @test typeof(T(ker)) <: K{T}
+                    @test @inferred(K{T}(ker)) isa K{T}
                     if T !== BigFloat
-                        @test T(ker) === K{T}(ker)
-                        @test T(ker) === K{T}(values(ker)...)
+                        @test @inferred(K{T}(ker)) === other
+                        @test @inferred(convert(K{T}, ker)) === other
+                        @test @inferred(convert_eltype(T, ker)) === other
+                        @test @inferred(adapt_precision(T, ker)) === other
+                        @test @inferred(K{T}(values(ker)...)) === other
                     end
                 end
             end

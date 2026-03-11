@@ -6,8 +6,12 @@
 
 - Minimal Julia version is 1.0, this bound is imposed by the `TypeUtils` package.
 
-- `ker(A)` with `ker` an interpolation kernel an `A` an abstract array has been deprecated.
+- `ker(A)` with `ker` an interpolation kernel and `A` an abstract array has been deprecated.
   Use `map(ker, A)` or `ker.(A)` instead.
+
+- `T(ker)` with `ker` an interpolation kernel and `T` a floating-point type has been
+  deprecated. Use `adapt_precision(T, ker)`, `Kernel{T}(ker)`, or `convert(Kernel{T}, ker)`
+  instead.
 
 ### Added
 
