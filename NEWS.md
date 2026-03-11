@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Changed
+
+- Minimal Julia version is 1.0, this bound is imposed by the `TypeUtils` package.
+
 ### Added
 
 - Use [`TypeUtils`](https://github.com/emmt/TypeUtils.jl).
