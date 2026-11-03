@@ -691,6 +691,27 @@ end
     end
 end
 
+@testset "Antiderivatives" begin
+    for T in (Float32, Float64), ker in (BSpline{1,T}(), BSpline{2,T}(), BSpline{3,T}(),
+                                        BSpline{4,T}(), CatmullRomSpline{T}(),
+                                        MitchellNetravaliSpline{T}(1/3, 1/3))
+        A = antiderivative(ker)
+        S = length(ker)
+        @test A(-S) == 0
+        @test A(S) ≈ 1
+        @test A(typeof(A(0))(S)) isa T
+        h = T(1)/1000
+        for x in (-S/2 + T(0.23)):T(0.37):(S/2 - T(0.2))
+            @test (A(x + h) - A(x - h))/(2h) ≈ ker(x) atol=1e-2
+        end
+    end
+    # The antiderivative of a derivative is the kernel itself.
+    for x in -2.5:0.25:2.5
+        @test antiderivative(BSpline{4}()')(x) ≈ BSpline{4}()(x) atol=1e-14
+    end
+    @test_throws MethodError antiderivative(LanczosKernel{4}())
+end
+
 Aqua.test_all(InterpolationKernels)
 
 end # module
