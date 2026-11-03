@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Added
+
+- `antiderivative(ker)` yields the antiderivative of piecewise polynomial kernels
+  (B-splines, cubic splines and their derivatives).
+
 ### Changed
 
 - Minimal Julia version is 1.0, this bound is imposed by the `TypeUtils` package.

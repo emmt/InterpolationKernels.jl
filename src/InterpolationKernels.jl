@@ -27,6 +27,7 @@ export
     LanczosKernelPrime,
     MitchellNetravaliSpline,
     MitchellNetravaliSplinePrime,
+    antiderivative,
     iscardinal,
     isnormalized,
 
@@ -1399,6 +1400,7 @@ for (K, has_size) in (:BSpline                  => true,
     end
 end
 
+include("antiderivative.jl")
 include("deprecated.jl")
 
 end # module
