@@ -432,6 +432,7 @@ end
             @test eltype(LanczosKernelPrime{S,Float32}()) === Float32
         end
         @test_throws ArgumentError LanczosKernel{3}()
+        @test_throws DomainError BSpline{5}()
     end
 
     @testset "Values" begin
@@ -659,10 +660,6 @@ end
                     @test ker(A) == ker.(A)
                 end
             end
-        end
-        let ker = BSpline{6}()
-            @test isa(brief(ker), String)
-            @test isa(brief(ker'), String)
         end
     end
 
