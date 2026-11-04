@@ -692,24 +692,35 @@ end
 end
 
 @testset "Antiderivatives" begin
-    for T in (Float32, Float64), ker in (BSpline{1,T}(), BSpline{2,T}(), BSpline{3,T}(),
-                                        BSpline{4,T}(), CatmullRomSpline{T}(),
-                                        MitchellNetravaliSpline{T}(1/3, 1/3))
-        A = antiderivative(ker)
+    for T in (Float32, Float64), ker in (
+                BSpline{1, T}(), BSpline{2, T}(), BSpline{3, T}(),
+                BSpline{4, T}(),
+                BSplinePrime{1, T}(), BSplinePrime{2, T}(), BSplinePrime{3, T}(),
+                BSplinePrime{4, T}(),
+                CatmullRomSpline{T}(),
+                MitchellNetravaliSpline{T}(1 / 3, 1 / 3),
+            )
+        A = Antiderivative(ker)
         S = length(ker)
         @test A(-S) == 0
-        @test A(S) ≈ 1
+        # For normalized kernels, the antiderivative above the support is 1.
+        # For non-normalized kernels (like derivatives), it's the integral of the kernel.
+        if isnormalized(ker)
+            @test A(S) ≈ 1
+        else
+            @test A(S) ≈ 0 atol = eps(T)
+        end
         @test A(typeof(A(0))(S)) isa T
-        h = T(1)/1000
-        for x in (-S/2 + T(0.23)):T(0.37):(S/2 - T(0.2))
-            @test (A(x + h) - A(x - h))/(2h) ≈ ker(x) atol=1e-2
+        h = T(1) / 1000
+        for x in (-S / 2 + T(0.23)):T(0.37):(S / 2 - T(0.2))
+            @test (A(x + h) - A(x - h)) / (2h) ≈ ker(x) atol = 1.0e-3
         end
     end
     # The antiderivative of a derivative is the kernel itself.
     for x in -2.5:0.25:2.5
-        @test antiderivative(BSpline{4}()')(x) ≈ BSpline{4}()(x) atol=1e-14
+        @test Antiderivative(BSpline{4}()')(x) ≈ BSpline{4}()(x) atol = eps(Float64)
     end
-    @test_throws MethodError antiderivative(LanczosKernel{4}())
+    @test_throws DomainError Antiderivative(LanczosKernel{4}())
 end
 
 Aqua.test_all(InterpolationKernels)
