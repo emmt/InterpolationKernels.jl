@@ -4,6 +4,5 @@
 	 (fill-column . 92)
 	 (ispell-local-dictionary . "american")))
  (julia-mode . ())
- (makefile-gmake-mode . ((indent-tabs-mode . t)))
  (sh-mode . ((sh-basic-offset . 4)))
  )
