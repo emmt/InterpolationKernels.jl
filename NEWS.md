@@ -2,23 +2,24 @@
 
 ## Unreleased
 
-### Added
-
-- `antiderivative(ker)` yields the antiderivative of piecewise polynomial kernels
-  (B-splines, cubic splines and their derivatives).
-
-### Changed
+### Breaking changes
 
 - Minimal Julia version is 1.0, this bound is imposed by the `TypeUtils` package.
 
 - `ker(A)` with `ker` an interpolation kernel and `A` an abstract array has been deprecated.
-  Use `map(ker, A)` or `ker.(A)` instead.
+  Use `map(ker, A)`, `broadcast(ker, A)`, or `ker.(A)` instead.
 
 - `T(ker)` with `ker` an interpolation kernel and `T` a floating-point type has been
   deprecated. Use `adapt_precision(T, ker)`, `Kernel{T}(ker)`, or `convert(Kernel{T}, ker)`
   instead.
 
+- `eltype(ker) -> T` and ``eltype(type(ker)) -> T` for interpolation kernel `ker` has been
+  deprecated. Use `get_precision(ker)` instead.
+
 ### Added
+
+- `antiderivative(ker)` yields the antiderivative of piecewise polynomial kernels
+  (B-splines, cubic splines and their derivatives).
 
 - Use [`TypeUtils`](https://github.com/emmt/TypeUtils.jl).
 
