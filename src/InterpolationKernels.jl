@@ -8,7 +8,7 @@
 # This file is part of the InterpolationKernels package licensed under the MIT "Expat"
 # License.
 #
-# Copyright (C) 2016-2025, Éric Thiébaut.
+# Copyright (C) 2016-2026, Éric Thiébaut.
 #
 
 module InterpolationKernels
@@ -425,7 +425,7 @@ by calling [`BSplinePrime`](@ref).
 
 """ BSpline
 
-struct BSpline{S,T} <: Kernel{T,S} 
+struct BSpline{S,T} <: Kernel{T,S}
     function BSpline{S,T}() where {S,T}
         if S < 1 || S > 4
             throw(DomainError(S, "B-spline of order $S is not implemented; only orders 1, 2, 3, and 4 are supported."))
@@ -444,7 +444,7 @@ See the caveats in [`BSpline`](@ref) about taking the derivative of B-splines of
 
 """ BSplinePrime
 
-struct BSplinePrime{S,T} <: Kernel{T,S} 
+struct BSplinePrime{S,T} <: Kernel{T,S}
     function BSplinePrime{S,T}() where {S,T}
         if S < 1 || S > 4
             throw(DomainError(S, "B-spline of order $S is not implemented; only orders 1, 2, 3, and 4 are supported."))
@@ -972,9 +972,9 @@ is assumed to be `Float64` if omitted.
 
 Catmull-Rom interpolation kernel is a cardinal piecewise cubic spline defined by:
 
-    ker(x) = ((3/2)*|x| - (5/2))*x^2 + 1             if |x| ≤ 1
-             (((5/2) - (1/2)*|x|)*|x| - 4)*|x| + 2   if 1 ≤ |x| ≤ 2
-             0                                       if |x| ≥ 2
+    ker(x) = ((3/2)*|x| - (5/2))*x^2 + 1       if |x| ≤ 1
+             (2 - |x|)^2*(1 - |x|)/2           if 1 ≤ |x| ≤ 2
+             0                                 if |x| ≥ 2
 
 The expression `ker'` yields a kernel instance which is the 1st derivative of the
 Catmull-Rom interpolation kernel `ker` (also see the constructor
@@ -1102,12 +1102,12 @@ approximation.
 
 Some specific values of `(b,c)` yield other well known kernels:
 
-    (b,c) = (1,0)      --> cubic B-spline
-    (b,c) = (0,-a)     --> Keys's cardinal cubic spline CardinalCubicSpline(a)
-    (b,c) = (0,1/2)    --> Catmull-Rom kernel CatmullRomSpline()
-    (b,c) = (b,0)      --> Duff's tensioned B-spline
-    (b,c) = (6β,-α-3β) --> generic cubic spline CubicSpline(α,β)
-    (b,c) = (1/3,1/3)  --> recommended by Mitchell-Netravali
+    (b,c) = (1,0)      ──→ cubic B-spline
+    (b,c) = (0,-a)     ──→ Keys's cardinal cubic spline CardinalCubicSpline(a)
+    (b,c) = (0,1/2)    ──→ Catmull-Rom kernel CatmullRomSpline()
+    (b,c) = (b,0)      ──→ Duff's tensioned B-spline
+    (b,c) = (6β,-α-3β) ──→ generic cubic spline CubicSpline(α,β)
+    (b,c) = (1/3,1/3)  ──→ recommended by Mitchell-Netravali
 
 The expression `ker'` yields a kernel instance which is the 1st derivative of the Mitchell &
 Netravali kernel `ker` (also see the constructor [`MitchellNetravaliSplinePrime`](@ref)).
@@ -1117,15 +1117,14 @@ Mitchell & Netravali family of kernels are currently instances of [`CubicSpline`
 Reference:
 
 * [Mitchell & Netravali, "*Reconstruction Filters in Computer Graphics*", in Computer
-  Graphics, Vol. 22, Num. 4
-  (1988)](http://www.cs.utexas.edu/users/fussell/courses/cs384g/lectures/mitchell/Mitchell.pdf).
+  Graphics, Vol. 22, Num. 4 (1988)](https://doi.org/10.1145/378456.378514).
 
 """ MitchellNetravaliSpline
 
 abstract type MitchellNetravaliSpline{T} <: AbstractCubicSpline{T} end
 
 """
-    MitchellNetravaliSplinePrime([T=Float64,] [b=1/3, c=1/3,] B=Flat)
+    MitchellNetravaliSplinePrime{T}([b=1/3, c=1/3])
 
 Return a kernel instance that is the 1st derivative of the Mitchell & Netravali kernel (see
 [`MitchellNetravaliSpline`](@ref)) for floating-point type `T`, parameters `b` and `c` and

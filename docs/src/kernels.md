@@ -20,7 +20,7 @@ function, that is `ker(k) = 0` for all integers `k` except that `ker(0) = 1` whi
 such a kernel directly suitable for interpolation.
 
 A *spline* is defined as a piecewise polynomial of given degree. A *B-spline* of order `S`
-is a piecesiwe polynomial of degree `S - 1` which is everywhere nonnegative, an even and
+is a piecewise polynomial of degree `S - 1` which is everywhere nonnegative, an even and
 normalized function (its integral is equal to 1).
 
 
@@ -85,7 +85,7 @@ The **quadratic B-spline** is the 3rd order B-spline defined by:
 
 ```
 ker(x) = 3/4 - x^2                   if |x| ≤ 1/2
-         (1/2)*(|x| - 3/2)^2         if |x| ≤ 3/2
+         (1/2)*(|x| - 3/2)^2         if 1/2 ≤ |x| ≤ 3/2
          0                           if |x| ≥ 3/2
 ```
 
