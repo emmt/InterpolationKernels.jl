@@ -27,7 +27,6 @@ ker(x::Real)
 
 yields kernel value at `x`.
 
-
 ## Basic methods
 
 Some simple methods are available for any interpolation kernel `ker`:
@@ -54,7 +53,6 @@ be built as follows:
 typeof(ker)(values(ker)...)
 ```
 
-
 ## Kernel floating-point type
 
 Calling a kernel `ker` with a real argument `x`, as `ker(x)`, always yield a floating-point
@@ -74,7 +72,6 @@ adapt_precision(Float32, ker)
 
 to use `Float32` floating-point arithmetic.
 
-
 ## Kernel support
 
 The call:
@@ -91,7 +88,6 @@ support (symmetric, left-/right-anchored, open, closed, semi-open, ...). Methods
 [`InterpolationKernels.infimum`](@ref) and [`InterpolationKernels.supremum`](@ref)
 respectively yield the lower and upper bounds of a kernel support.
 
-
 ## Traits
 
 Methods [`iscardinal`](@ref) and [`isnormalized`](@ref) respectively yield whether a kernel
@@ -99,7 +95,6 @@ is a cardinal function (that is, a function which yields zero for all non-zero i
 whether a kernel has the partition of unity property. For some parametric kernels, these
 traits depend on the specific values of the parameters, so these methods only take a kernel
 instance (not a type) as argument.
-
 
 ## Derivative
 
@@ -110,6 +105,18 @@ interpolating an array `A` with the derivative `ker'` is equivalent to taking th
 derivative of the continuous function modeled by interpolating the array `A` with the kernel
 `ker`.
 
+## Antiderivative
+
+The expression `Antiderivative(ker)` yields a callable object representing the antiderivative
+of the kernel `ker`, normalized to vanish at the left end of the support. When called as
+`A(x)`, it returns the integral of `ker` from the left end of its support to `x`. The
+antiderivative is useful for computing integrals of interpolated functions and other
+integration-based applications.
+
+The antiderivative is only available for piecewise polynomial kernels of degree at most 5,
+which includes B-splines, generic cubic splines, their derivatives, and the Keys, Catmull-Rom
+and Mitchell & Netravali kernels. The computation is exact up to rounding errors for these
+supported kernel types.
 
 ## Interpolation weights
 

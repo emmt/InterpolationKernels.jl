@@ -27,6 +27,7 @@ export
     LanczosKernelPrime,
     MitchellNetravaliSpline,
     MitchellNetravaliSplinePrime,
+    Antiderivative,
     iscardinal,
     isnormalized,
 
@@ -409,7 +410,7 @@ function of degree `S - 1` on a support of length `S`. The parameter `T` is the
 floating-point type for computations, `T = Float64` is assuled if this parameter is not
 specified.
 
-Fr now, not all B-spline are implemented in `InterpolationKernels`, `S` must be: `1` (for a
+For now, not all B-spline are implemented in `InterpolationKernels`, `S` must be: `1` (for a
 **rectangular** B-spline), `2` (for a **linear** B-spline), `3` (for a **quadratic**
 B-spline), or `4` (for a **cubic** B-spline).
 
@@ -424,7 +425,14 @@ by calling [`BSplinePrime`](@ref).
 
 """ BSpline
 
-struct BSpline{S,T} <: Kernel{T,S} end
+struct BSpline{S,T} <: Kernel{T,S} 
+    function BSpline{S,T}() where {S,T}
+        if S < 1 || S > 4
+            throw(DomainError(S, "B-spline of order $S is not implemented; only orders 1, 2, 3, and 4 are supported."))
+        end
+    new{S,T}()
+end
+end
 
 """
     BSplinePrime{S,T}()
@@ -436,7 +444,14 @@ See the caveats in [`BSpline`](@ref) about taking the derivative of B-splines of
 
 """ BSplinePrime
 
-struct BSplinePrime{S,T} <: Kernel{T,S} end
+struct BSplinePrime{S,T} <: Kernel{T,S} 
+    function BSplinePrime{S,T}() where {S,T}
+        if S < 1 || S > 4
+            throw(DomainError(S, "B-spline of order $S is not implemented; only orders 1, 2, 3, and 4 are supported."))
+        end
+    new{S,T}()
+    end
+end
 
 # Outer Constructors.
 BSpline{S}() where {S} = BSpline{S,Float64}()
@@ -1399,6 +1414,7 @@ for (K, has_size) in (:BSpline                  => true,
     end
 end
 
+include("antiderivative.jl")
 include("deprecated.jl")
 
 end # module
