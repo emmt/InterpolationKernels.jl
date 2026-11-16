@@ -1,6 +1,6 @@
 # User-visible changes in the `InterpolationKernels` package
 
-## Unreleased
+## Version 0.3.0 (2026-11-16)
 
 ### Breaking changes
 
